@@ -1381,6 +1381,43 @@
 
 #### member_benefits（会员权益配置）— 结构从略
 
+#### member_level_log（等级变更日志）— member_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| member_id | varchar(32) | 会员 ID |
+| from_level | varchar(20) | 原等级 |
+| to_level | varchar(20) | 新等级 |
+| reason | varchar(500) | 变更原因 |
+| operator | varchar(50) | 操作人 |
+| create_time | datetime | 变更时间 |
+
+**索引：** idx_member_id, idx_create_time
+
+#### member_blacklist（会员黑名单）— member_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| member_id | varchar(32) | 会员 ID |
+| user_id | varchar(32) | 用户 ID |
+| blacklist_type | varchar(30) | purchase(禁止购票)/entry(禁止入园)/marketing(禁止营销)/all(全站) |
+| reason | varchar(500) | 拉黑原因 |
+| start_time | datetime | 开始时间 |
+| end_time | datetime | 结束时间（NULL=永久） |
+| status | tinyint(1) | 1生效/0已解除 |
+| operator | varchar(50) | 操作人 |
+| remove_reason | varchar(500) | 解除原因 |
+| remove_time | datetime | 解除时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_member_id, idx_user_id, idx_blacklist_type, idx_status
+
 ---
 
 ### 3.12 进销存服务 — inventory_db
