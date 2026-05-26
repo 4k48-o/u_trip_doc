@@ -301,6 +301,7 @@
 | id | varchar(32) | 主键 |
 | card_no | varchar(50) | 年卡编号，唯一索引 |
 | user_id | varchar(32) | 游客用户 ID，关联 tourist_user.id |
+| sku_id | varchar(32) | 关联 product_sku.id，用于绑定票种权益、价格、有效期规则 |
 | name | varchar(100) | 持卡人姓名 |
 | id_type | varchar(20) | 证件类型 |
 | id_no | varchar(200) | 证件号（AES 加密） |
@@ -880,7 +881,17 @@
 | update_time | datetime | 更新时间 |
 | del_flag | tinyint(1) | 0正常/1删除 |
 
-**索引：** uk_apply_no, idx_order_id, idx_status
+**索引：** uk_apply_no, idx_user_id, idx_status
+
+#### invoice_apply_order（开票申请-订单关联）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| apply_id | varchar(32) | 开票申请 ID |
+| order_id | varchar(32) | 订单 ID |
+
+**索引：** uk_apply_order（联合唯一: apply_id + order_id）, idx_order_id
 
 #### invoice_record（开具记录）
 
@@ -1137,6 +1148,42 @@
 | del_flag | tinyint(1) | 0正常/1删除 |
 
 **索引：** uk_group_code, idx_sku_id, idx_start_time
+
+#### marketing_group_instance（拼团实例）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| group_buy_id | varchar(32) | 关联 marketing_group_buy.id |
+| group_id | varchar(50) | 团实例编号，唯一索引 |
+| initiator_user_id | varchar(32) | 开团人 ID |
+| current_count | int(11) | 当前参团人数 |
+| status | tinyint(1) | 0进行中/1成功/2失败 |
+| expire_time | datetime | 成团截止时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_group_id, idx_group_buy_id, idx_status
+
+#### marketing_group_member（拼团成员）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| group_id | varchar(50) | 团实例编号 |
+| user_id | varchar(32) | 参团用户 ID |
+| order_id | varchar(32) | 参团订单 ID |
+| join_time | datetime | 加入时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_group_user（联合唯一: group_id + user_id）, idx_order_id
 
 #### marketing_distribution（分销配置）— marketing_db
 
@@ -1411,7 +1458,7 @@
 | deposit_amount | decimal(10,2) | 押金金额（支付时一并收取） |
 | deposit_refund_amount | decimal(10,2) | 实际退还押金（设备损坏可扣减） |
 | overdue_fee | decimal(10,2) | 逾期费（超期累加） |
-| status | tinyint(1) | 1租借中/2已归还/3逾期/4设备损坏/5已结算 |
+| status | tinyint(1) | 0已预约待取(支付成功，待扫码)/1租借中/2已归还/3逾期/4设备损坏/5已结算 |
 | return_location | varchar(100) | 归还点 |
 | damage_remark | varchar(500) | 损坏说明 |
 | create_by | varchar(50) | 创建人 |
@@ -1422,7 +1469,7 @@
 
 **索引：** uk_rental_no, idx_user_id, idx_device_id, idx_status, idx_rent_start_time
 
-> **流程：** 游客在线预约/现场扫码 → 创建 order_main(order_type=rental, deposit_amount) → 支付租金+押金 → 创建 rental_order(status=1) → 更新 rental_device(status=1租借中) → 归还时扫码 → 结算 rent_fee + overdue_fee → 原路退还 deposit_refund_amount → rental_device(status=0空闲)
+> **流程：** 游客在线预约/现场扫码 → 创建 order_main(order_type=rental, deposit_amount) → 支付租金+押金 → 创建 rental_order(status=0已预约待取) → 扫码取设备 → rental_order(status=1, rent_start_time=now) → 更新 rental_device(status=1租借中) → 归还时扫码 → 结算 rent_fee + overdue_fee → 原路退还 deposit_refund_amount → rental_device(status=0空闲)
 > 
 > **押金退还逻辑：** 无损归还 → deposit_refund_amount = deposit_amount。设备损坏 → deposit_refund_amount = deposit_amount - 扣款（人工核定）。退款类型标记 `refund_type=deposit_return`。
 
@@ -1700,7 +1747,7 @@
 | 列名 | 类型 | 说明 |
 |------|------|------|
 | id | varchar(32) | 主键 |
-| scenic_spot_id | varchar(32) | 景点 ID，关联 scenic_spot.id |
+| scenic_spot_id | varchar(32) | 景点 ID，关联 scenic_spot.id。`content_hand_map.id = scenic_spot_id`（标注点与景点一一对应），API 使用 markerId 参数即 scenic_spot_id |
 | audio_url | varchar(500) | 音频 URL |
 | transcript | text | 讲解文字稿 |
 | language | varchar(10) | 语言 |
@@ -1721,7 +1768,7 @@
 |------|------|------|
 | id | varchar(32) | 主键 |
 | marker_name | varchar(100) | 标注名称 |
-| marker_type | varchar(20) | scenic/toilet/restaurant/parking/cable_car/facility |
+| marker_type | varchar(20) | scenic/toilet/restaurant/parking/cable_car/facility/atm |
 | longitude | decimal(12,8) | 经度 |
 | latitude | decimal(12,8) | 纬度 |
 | icon_url | varchar(500) | 图标 URL |
