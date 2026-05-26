@@ -196,6 +196,9 @@
 | contact_id_type | varchar(20) | 证件类型 |
 | contact_id_no | varchar(100) | 证件号 |
 | channel | varchar(20) | online/window/ota/agent |
+| annual_card_id | varchar(32) | 年卡 ID（年卡预约时写入，普通预约为 NULL） |
+| reservation_source | varchar(20) | order（普通购票）/ annual_card（年卡预约）/ agent（旅行社） |
+| order_id | varchar(32) | 关联订单 ID（支付完成后写入，可空） |
 | status | tinyint(1) | 1待支付/2已支付/3已改签/4已取消/5已核销 |
 | expire_time | datetime | 支付过期时间 |
 | create_by | varchar(50) | 创建人 |
@@ -216,6 +219,7 @@
 | name | varchar(100) | 姓名 |
 | id_type | varchar(20) | ID_CARD/PASSPORT/HK_MO/TAIWAN/PERMANENT_RESIDENCE |
 | id_no | varchar(200) | 证件号（AES 加密） |
+| id_no_hash | varchar(64) | 证件号 SHA-256，用于窗口售票时快速判断"该身份证今日是否已购票" |
 | nationality | varchar(50) | 国籍 |
 | gender | varchar(10) | M/F/U |
 | age | tinyint(3) UNSIGNED | 年龄 |
@@ -494,6 +498,7 @@
 | scenic_spot_id | varchar(32) | 所属景点 ID |
 | description | text | 商品描述 |
 | main_image | varchar(500) | 主图 URL |
+| sold_count | int(11) | 累计销量（冗余计数器，由订单完成事件异步更新） |
 | images | text | 图片列表（JSON） |
 | notice | text | 购买须知 |
 | refund_policy | text | 退改规则 |
@@ -1981,6 +1986,11 @@
 
 **索引：** uk_rule_code, idx_target_type_id, idx_rule_type, idx_status
 
+> **rule_params JSON 示例：**
+> - verify_deadline: `{"start_time":"08:00","end_time":"20:00"}`
+> - re_entry_interval: `{"interval_minutes": 240}`
+> - delay_verify: `{"delay_minutes": 30}`（出票后30分钟内不可核销，防倒票）
+
 #### alert_rule（预警规则）
 
 | 列名 | 类型 | 说明 |
@@ -2025,6 +2035,215 @@
 
 ---
 
+### 3.19 辅助服务表 — analytics_db / notification_db
+
+#### ai_knowledge（AI 知识库）— analytics_db
+
+> FAQ/政策/产品知识条目，支撑 AI 问答和知识库管理。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| title | varchar(200) | 标题 |
+| content | longtext | 知识内容 |
+| category | varchar(50) | faq/policy/product/guide |
+| keywords | varchar(500) | 关键词 |
+| source_type | varchar(20) | manual/sync |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_category, idx_status
+
+#### ai_session（AI 会话）— analytics_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| session_no | varchar(50) | 会话编号，唯一索引 |
+| user_id | varchar(32) | 用户 ID |
+| status | varchar(20) | active/closed/transferred |
+| start_time | datetime | 开始时间 |
+| end_time | datetime | 结束时间 |
+| create_time | datetime | 创建时间 |
+
+**索引：** uk_session_no, idx_user_id
+
+#### ai_message（AI 消息）— analytics_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| session_id | varchar(32) | 会话 ID |
+| sender_type | varchar(20) | user/ai/agent |
+| content | text | 消息内容 |
+| msg_type | varchar(20) | text/audio/image |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_session_id
+
+#### cs_session（客服会话）— analytics_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| session_no | varchar(50) | 会话编号，唯一索引 |
+| user_id | varchar(32) | 用户 ID |
+| agent_id | varchar(32) | 坐席 ID |
+| status | varchar(20) | queuing/active/closed |
+| queue_position | int(11) | 排队位置 |
+| wait_time | int(11) | 预计等待（秒） |
+| source | varchar(30) | tourist_app/ai_transfer |
+| start_time | datetime | 开始时间 |
+| end_time | datetime | 结束时间 |
+| create_time | datetime | 创建时间 |
+
+**索引：** uk_session_no, idx_user_id, idx_status
+
+#### cs_message（客服消息）— analytics_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| session_id | varchar(32) | 会话 ID |
+| sender_type | varchar(20) | user/agent/system |
+| content | text | 消息内容 |
+| msg_type | varchar(20) | text/image/file |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_session_id
+
+#### notify_inbox（通知收件箱）— notification_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| user_id | varchar(32) | 用户 ID |
+| title | varchar(200) | 通知标题 |
+| content | varchar(1000) | 通知内容 |
+| notify_type | varchar(30) | payment/verify/rental/group_buy/system |
+| is_read | tinyint(1) | 0未读/1已读 |
+| related_id | varchar(32) | 关联业务 ID |
+| related_type | varchar(30) | 关联业务类型 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_user_read（联合: user_id + is_read）, idx_create_time
+
+#### distribution_withdraw（分销提现申请）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| withdraw_no | varchar(50) | 提现单号，唯一索引 |
+| distributor_id | varchar(32) | 分销员 ID |
+| amount | decimal(10,2) | 提现金额 |
+| status | tinyint(1) | 0待审核/1已打款/2已拒绝 |
+| bank_account | text | 收款账户信息（JSON） |
+| apply_time | datetime | 申请时间 |
+| approve_by | varchar(50) | 审核人 |
+| approve_time | datetime | 审核时间 |
+| transfer_time | datetime | 打款时间 |
+| remark | varchar(500) | 备注 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_withdraw_no, idx_distributor_id, idx_status
+
+#### cashier_session（收银员班次/日结）— settlement_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| session_no | varchar(50) | 班次编号，唯一索引 |
+| seller_id | varchar(32) | 售票员 ID（sys_user.id） |
+| area_id | varchar(32) | 窗口所属景区 ID |
+| shift_start | datetime | 班次开始 |
+| shift_end | datetime | 班次结束 |
+| total_ticket_count | int(11) | 售票张数 |
+| total_sold_amount | decimal(10,2) | 售票金额 |
+| total_refund_count | int(11) | 退票张数 |
+| total_refund_amount | decimal(10,2) | 退票金额 |
+| net_amount | decimal(10,2) | 净收入 |
+| status | varchar(10) | open/closed |
+| closed_by | varchar(50) | 结账人 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_session_no, idx_seller_id, idx_shift_start
+
+#### geofence（电子围栏）— scenic_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| fence_code | varchar(50) | 围栏编码，唯一索引 |
+| fence_name | varchar(200) | 围栏名称 |
+| area_id | varchar(32) | 所属景区 ID |
+| polygon_coords | longtext | 多边形坐标（GeoJSON） |
+| fence_type | varchar(30) | operation(运营)/distribution(分销)/vehicle(车辆) |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_fence_code, idx_fence_type
+
+#### visitor_stat_daily（游客统计日报）— analytics_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | bigint(20) | 主键，AUTO_INCREMENT |
+| stat_date | date | 统计日期 |
+| area_id | varchar(32) | 景区 ID |
+| nationality | varchar(50) | 国籍 |
+| gender | varchar(10) | M/F |
+| age_group | varchar(10) | 0-18/19-35/36-55/56+ |
+| source_province | varchar(50) | 来源省份 |
+| visit_count | int(11) | 入园人次 |
+| ticket_count | int(11) | 售票张数 |
+| revenue | decimal(10,2) | 门票收入 |
+
+**索引：** idx_stat_date, idx_area_id
+
+#### product_stat_daily（商品日统计）— analytics_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | bigint(20) | 主键，AUTO_INCREMENT |
+| stat_date | date | 统计日期 |
+| sku_id | varchar(32) | SKU ID |
+| channel | varchar(20) | 渠道 |
+| sold_count | int(11) | 售出数 |
+| verify_count | int(11) | 核销数 |
+| refund_count | int(11) | 退款数 |
+| revenue | decimal(10,2) | 收入 |
+
+**索引：** idx_stat_date, idx_sku_id
+
+#### device_health_log（设备心跳历史）— device_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | bigint(20) | 主键，AUTO_INCREMENT |
+| device_id | varchar(32) | 设备 ID |
+| device_type | varchar(30) | gate/handheld/printer/scanner/counter/cashier |
+| status | tinyint(1) | 0离线/1在线/2故障 |
+| battery_level | tinyint(2) | 电量（仅手持机） |
+| heartbeat_time | datetime | 心跳时间 |
+
+**索引：** idx_device_time（联合: device_id + heartbeat_time），按月分区 PARTITION BY RANGE (TO_DAYS(heartbeat_time))
+
 ## 4. 表统计
 
 | 类别 | 表数 | 说明 |
@@ -2032,4 +2251,4 @@
 | JEECG Boot 系统表（保留） | 61 | 用户/角色/权限/组织/字典/日志/消息/文件/任务/网关/多数据源 |
 | JEECG Boot 可选表（按需） | 62 | Online 低代码/JimuReport/AI 模块 |
 | Nacos + XXL-JOB（独立库） | 11 | 微服务基础设施 |
-| **绥中业务表** | **~92** | 按 20 个独立服务库分布（ticket/product/order/settlement/invoice/face/merchant/marketing/member/inventory/rental/traffic/integration/scenic/vehicle/content/device/analytics/rule/notification） |
+| **绥中业务表** | **~105** | 按 20 个独立服务库分布（ticket/product/order/settlement/invoice/face/merchant/marketing/member/inventory/rental/traffic/integration/scenic/vehicle/content/device/analytics/rule/notification） |
