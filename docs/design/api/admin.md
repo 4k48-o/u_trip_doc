@@ -132,6 +132,7 @@
   "categoryCodes": "[\"ATTRACTION_TICKET\"]",
   "primaryLanguage": "zh-CN",
   "reference": "TICKET_REF_001",
+  "metaData": "{\"extInfo\":\"custom\"}",
   "serviceLanguages": "[\"zh-CN\",\"en\",\"ja\",\"ko\"]",
   "guestInfoType": "PER_PERSON",
   "guestInfoCodes": "[\"GUEST_NAME\",\"ID_CARD\",\"COUNTRY\"]",
@@ -152,6 +153,7 @@
     "maxBuyPerOrder": 5,
     "unitPax": 1,
     "companionRequired": false,
+    "customCode": "ADULT_FULL",
     "passengerType": "Adult",
     "netPriceCurrency": "CNY",
     "retailPriceCurrency": "CNY",
@@ -181,8 +183,6 @@
   }]
 }
 ```
-
-> **SPU 级新增字段：** 除示例中字段外，创建/编辑 SPU 时可传 `categoryCodes`（JSON数组）、`primaryLanguage`、`reference`、`metaData`、`serviceLanguages`（JSON数组）、`guestInfoType`（PER_PERSON/PER_ORDER）、`guestInfoCodes`（JSON数组）、`paymentConfirmationTime`（分钟）。
 
 > **specDesc 字段 schema：** SKU 的 `specDesc` 为 JSON 字符串，支持 `ageMin`（int）、`ageMax`（int/null）、`idType`（string数组如 `["ID_CARD","PASSPORT"]`）等规格维度。由前端自由组合，后端透传不做额外校验。
 
@@ -227,6 +227,8 @@
 
 ### 2.5 价格日历批量设置
 
+**GET** `/api/v1/admin/products/{spuId}/price-calendar?skuId=X&startDate=Y&endDate=Z` — 查询已有日历
+
 **PUT** `/api/v1/admin/products/{spuId}/price-calendar`
 
 > 为指定 SKU 批量设置未来日期的价格和库存。
@@ -234,6 +236,7 @@
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | skuId | string | 是 | SKU ID |
+| currency | string | 否 | 币种 (ISO 4217)，默认 CNY |
 | entries | array | 是 | 日期条目 |
 | entries[].date | string | 是 | yyyy-MM-dd |
 | entries[].price | string | 是 | 当日价格 |
@@ -286,6 +289,8 @@
 > exclusions/highlights/how-to-use 同理。
 
 ### 2.8 选项/时段管理
+
+**GET** `/api/v1/admin/products/{spuId}/options` — 查询当前选项配置
 
 **PUT** `/api/v1/admin/products/{spuId}/options`
 
