@@ -14,20 +14,19 @@
 
 **响应示例：**
 ```json
-{
-  "code": 0,
-  "data": {
-    "areaId": "AREA_001",
-    "areaName": "绥中长城",
-    "weather": { "temperature": 22, "condition": "晴", "pm25": 35, "humidity": "45%" },
-    "crowdLevel": "适中",
-    "parking": { "available": 320, "total": 500 },
-    "queueTime": { "southGate": "5分钟", "northGate": "3分钟", "cableCar": "15分钟" },
-    "notice": "今日南口人流较大，建议从北口入园",
-    "updateTime": "2026-05-26 10:00:00"
-  }
-}
+{ "code": 0, "data": { "areaId": "AREA_001", "weather": { "temperature": 22, "condition": "晴" }, "crowdLevel": "适中", "queueTime": { "southGate": "5分钟" } } }
 ```
+
+### 1.0a 个性化推荐
+
+**GET** `/api/v1/tourist/products/recommend`
+
+> 基于当前浏览商品或历史订单的个性化推荐。无需 Token（未登录使用全局热门推荐）。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| spuId | string | 否 | 基于此商品推荐关联商品 |
+| lang | string | 否 | 语言，默认 Accept-Language |
 
 ### 1.1 商品列表
 
@@ -846,6 +845,23 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
+### 5.7 年卡预约入园
+
+**POST** `/api/v1/tourist/annual-cards/{cardNo}/reserve`
+
+> 年卡用户预约游览时段（不购票，仅占时段容量）。
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| visitDate | string | 是 | 游览日期 |
+| timeSlot | string | 是 | 时段 |
+
+**响应：** `{ "code": 0, "data": { "reservationNo": "RES20260501001", "visitDate": "2026-06-01", "timeSlot": "08:00-10:00" } }`
+
+**GET** `/api/v1/tourist/annual-cards/{cardNo}/reservations` — 我的年卡预约记录
+
 ---
 
 ## 6. 会员与营销
@@ -876,6 +892,14 @@ X-Idempotent-Key: uuid-v4
   }
 }
 ```
+
+### 6.2a 每日签到
+
+**POST** `/api/v1/tourist/member/sign-in`
+
+**Auth:** Bearer Token。
+
+**响应：** `{ "code": 0, "data": { "points": 10, "consecutiveDays": 7, "bonusPoints": 5 } }`
 
 ### 6.2 积分明细
 
@@ -971,6 +995,24 @@ X-Idempotent-Key: uuid-v4
 |------|------|------|------|
 | groupBuyId | string | 是 | 拼团活动 ID |
 | groupId | string | 否 | 已有团 ID（参团），不传则自动开新团 |
+
+**GET** `/api/v1/tourist/group-buy/my` — 我参与的拼团列表（含状态: 进行中/成功/失败）
+
+**GET** `/api/v1/tourist/group-buy/{groupId}/status` — 团实例详情（当前人数/成团阈值/倒计时）
+
+### 6.8 全民分销
+
+**POST** `/api/v1/tourist/distribution/apply` — 申请成为分销员
+
+**Auth:** Bearer Token。响应: `{ "code": 0, "data": { "shareCode": "SHARE001", "status": 0, "statusText": "待审核" } }`
+
+**GET** `/api/v1/tourist/distribution/profile` — 我的推广码/链接/佣金汇总
+
+**Auth:** Bearer Token。响应: `{ "shareCode": "SHARE001", "shareLink": "https://...", "totalCommission": "250.00" }`
+
+**GET** `/api/v1/tourist/distribution/commissions` — 佣金明细（含状态：待结算/已结算/已提现）
+
+**POST** `/api/v1/tourist/distribution/withdraw` — 提现申请。`{ "amount": "100.00" }`
 
 ---
 
@@ -1146,6 +1188,7 @@ X-Idempotent-Key: uuid-v4
 | title | string | 是 | 标题 |
 | content | string | 是 | 正文（支持富文本） |
 | images | array | 是 | 图片 URL 列表 |
+| videoUrl | string | 否 | 短视频 URL（mp4 格式，上限 60 秒） |
 | tags | array | 否 | 标签 |
 
 **响应：** `{ "code": 0, "data": { "noteId": "N001", "auditStatus": 0, "auditStatusText": "待审核" } }`
@@ -1219,88 +1262,18 @@ X-Idempotent-Key: uuid-v4
 | AI_001 | AI 服务暂时不可用 |
 | AI_002 | 语音识别失败 |
 
----
+### 12.4 通知收件箱
 
-## 11. 租赁服务
+**GET** `/api/v1/tourist/notifications`
 
-> 游客端租赁接口。租赁业务数据库模型见 [database.md](../database.md)。
-
-### 11.1 可租设备查询
-
-**GET** `/api/v1/tourist/rental/devices`
+**Auth:** Bearer Token。查看我的历史通知消息（支付成功/核销提醒/租赁逾期等）。
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| category | string | 否 | 设备类型 SKU 的 category_code（如 RENTAL） |
-| areaId | string | 否 | 景区 ID |
-| keyword | string | 否 | 设备名称搜索 |
 | pageNo | int | 否 | 默认 1 |
+| pageSize | int | 否 | 默认 20 |
 
-**响应records字段：** deviceNo(设备编号), skuName, billingType, unitPrice, depositAmount, location, status(空闲/租借中)。
-
-### 11.2 创建租赁预约
-
-**POST** `/api/v1/tourist/rental/orders`
-
-**Auth:** Bearer Token。
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| deviceNo | string | 是 | 设备编号 |
-| expectedReturnTime | string | 是 | 预计归还时间 |
-| payMethod | string | 是 | wechat / alipay / unionpay |
-
-**响应：** `{ "code": 0, "data": { "rentalNo": "RTL20260601001", "orderId": "ORD...", "rentFee": "20.00", "depositAmount": "200.00", "paidAmount": "220.00" } }`
-
-> **rentFee 为预估租赁费**（按预计归还时间计算），实际费用以归还结算为准（见 §11.4）。
-
-### 11.3 扫码取设备
-
-**POST** `/api/v1/tourist/rental/orders/{rentalNo}/pickup`
-
-> 到设备存放点扫码设备二维码（device_no）。`rental_order.status = 1`，`rental_device.status = 1`。
-
-**Auth:** Bearer Token。
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| deviceNo | string | 是 | 扫码获取的设备编号 |
-
-### 11.4 扫码归还设备
-
-**POST** `/api/v1/tourist/rental/orders/{rentalNo}/return`
-
-> 扫码归还设备。服务端结算实际费用+逾期费，原路退还押金。
-
-**Auth:** Bearer Token。
-
-**响应：**
-```json
-{
-  "code": 0,
-  "data": {
-    "rentalNo": "RTL20260601001",
-    "rentFee": "20.00",
-    "overdueFee": "0.00",
-    "depositRefundAmount": "200.00",
-    "status": 5,
-    "statusText": "已结算"
-  }
-}
-```
-
-### 11.5 我的租赁订单
-
-**GET** `/api/v1/tourist/rental/orders`
-
-**Auth:** Bearer Token。
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| status | int | 否 | 1租借中 / 2已归还 / 3逾期 / 4设备损坏 / 5已结算 |
-| pageNo | int | 否 | — |
-
-**响应records字段：** rentalNo, deviceName, rentStartTime, rentEndTime, rentFee, depositRefundAmount, status, statusText。
+**PUT** `/api/v1/tourist/notifications/{id}/read` — 标记已读
 
 ---
 

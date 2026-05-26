@@ -42,7 +42,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | X-Request-Id | 否 | 客户端生成 UUID，用于全链路追踪 |
 | Accept-Language | 否 | zh-CN / en / ja 等，影响错误消息语言 |
 | X-Client-Type | 否 | miniapp / h5 / pc / window，用于埋点统计 |
-| Accept-Language | 否 | 优先级: `?lang=` 查询参数 > `Accept-Language` 头 > 默认 `zh-CN`。用于 `statusText`、错误消息、展示文本等字段的国际化。支持: `zh-CN`、`en`、`ja`、`ko`。不支持的语言 fallback 至 `zh-CN` |
+| Accept-Language | 否 | 优先级: `?lang=` 查询参数 > `Accept-Language` 头 > 默认 `zh-CN`。用于 `statusText`、错误消息、展示文本等字段的国际化。支持: `zh-CN`、`en`、`ja`、`ko`、`ru`、`fr`、`es`、`ar`。不支持的语言 fallback 至 `zh-CN` |
 
 ## 4. 统一响应格式
 
