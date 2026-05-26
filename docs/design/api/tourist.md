@@ -164,7 +164,7 @@
         "skuId": "SKU002",
         "skuName": "老人优惠票",
         "priceType": "DISCOUNT",
-        "specDesc": { "ageRange": "60岁以上", "idType": ["ID_CARD"] },
+        "specDesc": { "ageMin": 60, "ageMax": null, "idType": ["ID_CARD"] },
         "sellPrice": "20.00",
         "originalPrice": "25.00",
         "needRealName": true,
