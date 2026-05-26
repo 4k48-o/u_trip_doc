@@ -55,23 +55,46 @@
 |----------|----------|------|
 | ota_product_mapping.ota_option_id | supplierProductId | 供应商商品 ID |
 | product_language (title) | title | 多语言名称 |
-| product_spu.category_code | category.code | 映射到 OTA 类目 |
+| product_spu.category_codes | category[] | 携程多品类数组（≥ category_code 单值） |
+| product_spu.primary_language | primaryLanguage | 产品原始录入语言 |
+| product_spu.reference | reference | 供应商内部识别码 |
+| product_spu.meta_data | metaData | 携程扩展元数据（≤8000字符） |
+| product_spu.service_languages | serviceLanguage[] | 服务语言列表 |
+| product_spu.guest_info_type + guest_info_codes | guestInformation | 游客信息要求 |
+| product_spu.payment_confirmation_time | bookingSettings.paymentConfirmationTime | 5/10/15/30/40/60/120 |
 | product_spu.main_image | gallery[0] | 主图（先上传至 OTA 获取 tripImageId） |
 | product_spu.description | description | 商品描述 |
-| product_spu.highlight | highlight | 亮点 |
-| product_spu.inclusions | inclusions | 费用包含 |
-| product_spu.exclusions | exclusions | 费用不含 |
-| product_spu.how_to_use | howToUse | 使用方法 |
+| product_inclusion (子表) | inclusions[] | 结构化费用包含 |
+| product_exclusion (子表) | exclusions[] | 结构化费用不含 |
+| product_highlight_item (子表) | highlight[] | 结构化亮点 |
+| product_how_to_use_item (子表) | howToUse[] | 结构化使用方法 |
 | product_spu.additional_info | additionalInfo | 附加信息 |
 | product_spu.delivery_method | ticketInfo.deliveryMethods | DIGITAL / PRINT / VALID_ID |
 | product_spu.redemption_type | redemptionInfo.redemptionType | 入园方式 |
-| product_spu.booking_cutoff_time | bookingSettings | 预订截止 |
+| product_redemption_location | redemptionInfo.redemptionLocation[] | 核销地点详情 |
+| product_spu.booking_cutoff_time | bookingSettings.bookingCutoffTime | 预订截止 |
 | product_spu.duration_* | duration | 时长 |
-| scenic_spot.ota_poi_mapping | poi | POI 映射 |
-| product_sku (price_type) | ticketType.code | Adult / Child / Senior |
+| scenery.ota_poi_mapping + scenic_spot | poi | POI 映射 |
+| product_sku.passenger_type | ticketType.code | 人群属性 Adult/Child/Senior/... |
+| product_sku.custom_code | ticketType.customCode | Customized 时使用 |
 | product_sku.age_limit_* | ticketType.restrictions | 年龄限制 |
+| product_sku.net_price_currency | netPriceCurrency | 底价币种 |
+| product_sku.retail_price_currency | retailPriceCurrency | 卖价币种 |
+| product_sku.min_buy | minUnits | 最小预订份数 |
+| product_sku.max_buy_per_order | maxUnits | 最大预订份数 |
+| product_sku.unit_pax | unitPax | 每份对应人数 |
+| product_sku.companion_required | companionRequired | 是否必须组合购买 |
 | rule_refund.cancel_fee_json | cancellationPolicy.rateList | 退改费率 |
+| rule_refund.confirmation_time | cancellationPolicy.confirmationTime | 退改确认时限 |
 | product_option_slot | option / Time_Slot | 选项和时段 |
+| product_option_slot.option_status | optionStatus | active/inactive |
+| product_option_slot.option_desc | optionDescription | 套餐描述 |
+| product_option_slot.option_booking_cutoff_time | bookingCutOffTime | 套餐级预订时间 |
+| product_booking_question | optionList.bookingQuestions[] | 预订附加问题 |
+| product_tag | tags[] | 产品标签 |
+| product_destination | destination[] | 目的地城市 |
+| product_departure | departure[] | 出发地城市 |
+| product_itinerary* 系列表 | itinerary | 行程结构化数据 |
 
 **请求示例（解密后 body）：**
 ```json

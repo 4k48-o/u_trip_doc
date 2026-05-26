@@ -252,9 +252,25 @@
 
 **POST** `/api/v1/admin/products/batch-import` — Excel 批量导入（multipart/form-data）
 
-> Excel 模板列：`序号 | SPU编码 | SPU名称 | 业态分类 | 说明 | SKU编码 | SKU名称 | 价格类型(FULL/DISCOUNT/FREE) | 原价 | 售价 | 成本价 | 最大限购 | 年龄下限 | 年龄上限 | 是否需要实名(0/1)`
+> Excel 模板列：`序号 | SPU编码 | SPU名称 | 业态分类 | SKU编码 | SKU名称 | 价格类型 | 人群类型 | 原价 | 售价 | 成本价 | 币种 | 最小份数 | 最大限购 | 每份人数 | 年龄下限 | 年龄上限 | 是否实名 | 有效期 | 是否必组合`
 
 **GET** `/api/v1/admin/products/export` — 导出全量商品 Excel
+
+### 2.11 结构化子表管理
+
+> 以下 6 组端点管理 product_spu 的关联子表（替代原 text 字段）。
+
+**行程 CRUD：** `/api/v1/admin/products/{spuId}/itinerary` — GET/POST/PUT/DELETE（含 day/item/food/accommodation/start/end 嵌套）
+
+**核销地点：** `/api/v1/admin/products/{spuId}/redemption-locations` — GET/POST/DELETE
+
+**预订问题：** `/api/v1/admin/products/{spuId}/booking-questions` — 含 question + answer 嵌套
+
+**标签：** `/api/v1/admin/products/{spuId}/tags` — 管理 tag_mapping 关联
+
+**目的地/出发地：** `/api/v1/admin/products/{spuId}/destination` + `.../departure`
+
+**列表项：** `/api/v1/admin/products/{spuId}/inclusions` — GET/POST/PUT/DELETE `/exclusions` `/highlights` `/how-to-use` — 单条 CRUD，自动校验字符数
 
 ---
 
