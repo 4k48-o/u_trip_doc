@@ -42,6 +42,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | X-Request-Id | 否 | 客户端生成 UUID，用于全链路追踪 |
 | Accept-Language | 否 | zh-CN / en / ja 等，影响错误消息语言 |
 | X-Client-Type | 否 | miniapp / h5 / pc / window，用于埋点统计 |
+| Accept-Language | 否 | 优先级: `?lang=` 查询参数 > `Accept-Language` 头 > 默认 `zh-CN`。用于 `statusText`、错误消息、展示文本等字段的国际化。支持: `zh-CN`、`en`、`ja`、`ko`。不支持的语言 fallback 至 `zh-CN` |
 
 ## 4. 统一响应格式
 
@@ -110,7 +111,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 |------|------|------|------|------|
 | 密码 | bcrypt 哈希 | HTTPS | 不记录 | 不返回 |
 | 身份证号 | AES-256 加密 | HTTPS | 不记录 | 脱敏 `110***********1234` |
-| 手机号 | AES-256 加密 | HTTPS | 脱敏 `138****1234` | 脱敏 |
+| 手机号 | AES-256 加密 | HTTPS | 脱敏（中国大陆: `138****1234`；国际: `+8190****5678`） | 脱敏 |
 | 护照号 | AES-256 加密 | HTTPS | 不记录 | 脱敏 `E****1234` |
 | Token | Redis 存储 | HTTPS Header | 不记录 | 仅登录时返回 |
 | 人脸图片 | AES-256 加密 | HTTPS | 不记录 | 不返回原始图片，仅返回缩略图 URL |

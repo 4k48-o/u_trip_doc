@@ -117,7 +117,7 @@
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| lang | string | 否 | 语言。默认请求头 Accept-Language，缺省 zh-CN |
+| lang | string | 否 | 语言。默认请求头 Accept-Language，缺省 zh-CN。`spuName`/`description`/`notice`/`refundPolicy` 等字段由 `product_language` 表驱动，未录入时 fallback 至默认语言 |
 | visitDate | string | 否 | 传入后返回当日价格和库存 |
 
 **响应示例：**
@@ -128,7 +128,6 @@
     "spuId": "SPU001",
     "spuCode": "TICKET_ADULT",
     "spuName": "绥中长城成人票",
-    "spuNameEn": "Suizhong Great Wall Adult Ticket",
     "categoryCode": "TICKET",
     "scenicSpotId": "SPOT_001",
     "mainImage": "https://cdn.example.com/images/p001.jpg",
@@ -153,7 +152,7 @@
         "skuId": "SKU001",
         "skuName": "成人全价票",
         "priceType": "FULL",
-        "specDesc": { "ageRange": "19-59岁", "idType": ["ID_CARD", "PASSPORT"] },
+        "specDesc": { "ageMin": 19, "ageMax": 59, "idType": ["ID_CARD", "PASSPORT"] },
         "sellPrice": "40.00",
         "originalPrice": "45.00",
         "needRealName": true,
@@ -417,7 +416,7 @@ X-Idempotent-Key: uuid-v4
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | contactName | string | 是 | 联系人姓名 |
-| contactPhone | string | 是 | 联系人手机（AES 加密） |
+| contactPhone | string | 是 | 联系人手机（E.164 格式: `+[国家码][号码]`，AES 加密传输） |
 | couponId | string | 否 | 优惠券 ID |
 | insuranceFlag | bool | 否 | 是否购买保险 |
 | insuranceProductId | string | 否 | 保险产品 SKU ID（insuranceFlag=true 时必填） |
@@ -1021,7 +1020,11 @@ X-Idempotent-Key: uuid-v4
 
 **GET** `/api/v1/tourist/guide/map`
 
-> 无需 Token。返回地图底图 URL + 全部标注点。
+> 无需 Token。返回地图底图 URL + 全部标注点。标注名称/描述由 `?lang=` 参数和 `content_hand_map_i18n` 表驱动。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| lang | string | 否 | 语言，默认 Accept-Language，缺省 zh-CN |
 
 **响应示例：**
 ```json
@@ -1045,6 +1048,7 @@ X-Idempotent-Key: uuid-v4
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | routeType | string | 否 | recommend / family / senior / quick |
+| lang | string | 否 | 语言，默认 Accept-Language，缺省 zh-CN |
 
 ### 8.3 附近服务点
 
@@ -1065,8 +1069,8 @@ X-Idempotent-Key: uuid-v4
   "code": 0,
   "data": {
     "markers": [
-      { "markerName": "南口卫生间", "markerType": "toilet", "distance": 120, "direction": "北偏东30°", "longitude": 116.55, "latitude": 40.42 },
-      { "markerName": "长城餐厅", "markerType": "restaurant", "distance": 350, "direction": "北偏西15°", "longitude": 116.56, "latitude": 40.43 }
+      { "markerName": "南口卫生间", "markerType": "toilet", "distance": 120, "bearing": 30, "longitude": 116.55, "latitude": 40.42 },
+      { "markerName": "长城餐厅", "markerType": "restaurant", "distance": 350, "bearing": 345, "longitude": 116.56, "latitude": 40.43 }
     ]
   }
 }
@@ -1076,7 +1080,12 @@ X-Idempotent-Key: uuid-v4
 
 **GET** `/api/v1/tourist/guide/audio/{markerId}`
 
-> 返回对应景点的语音讲解信息。无需 Token。
+> 返回对应景点的语音讲解信息。无需 Token。默认返回请求语言(`?lang=`/`Accept-Language`)对应音频+文字稿。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| lang | string | 否 | 语言，默认 Accept-Language，缺省 zh-CN。未命中 fallback 至 zh-CN |
+| listAll | bool | 否 | true 时返回所有语言的 `languages` 数组
 
 **响应示例：**
 ```json
@@ -1107,6 +1116,7 @@ X-Idempotent-Key: uuid-v4
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | category | string | 否 | news / notice / culture / activity |
+| lang | string | 否 | 语言，默认 Accept-Language，缺省 zh-CN |
 
 ### 9.2 游记/攻略列表
 

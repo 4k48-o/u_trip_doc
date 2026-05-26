@@ -544,6 +544,24 @@
 
 **索引：** uk_sku_code, idx_spu_id, idx_status
 
+#### sku_language（SKU 多语言）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| sku_id | varchar(32) | SKU ID |
+| language_code | varchar(10) | 语言代码 |
+| sku_name | varchar(200) | 翻译名称 |
+| spec_desc | varchar(500) | 翻译规格描述（JSON） |
+| status | tinyint(1) | 0待翻译/1已发布 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_sku_language（联合唯一: sku_id + language_code）
+
 > **年龄校验优先级：** SKU 的 age_limit_min/max 作为**第一层硬限制**（在订单预览阶段即拦截）。rule_sale(rule_type=age_limit) 作为**第二层可配置规则**（用于复杂场景，如组合票的跨年龄限制）。两者不冲突：SKU 先判断，通过后再走 rule_sale 校验。如果 SKU 字段为 NULL 表示无限，仅靠 rule_sale 限制。
 
 #### product_combo（组合产品）
@@ -1084,6 +1102,23 @@
 | del_flag | tinyint(1) | 0正常/1删除 |
 
 **索引：** uk_coupon_code, idx_status, idx_start_time, idx_end_time
+
+#### marketing_coupon_i18n（优惠券多语言）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| coupon_id | varchar(32) | 优惠券 ID |
+| language_code | varchar(10) | 语言代码 |
+| coupon_name | varchar(200) | 翻译名称 |
+| status | tinyint(1) | 0待翻译/1已发布 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_coupon_language（联合唯一）
 
 #### marketing_coupon_use（优惠券使用记录）
 
@@ -1717,6 +1752,24 @@
 
 **索引：** idx_category, idx_publish_time, idx_status
 
+#### content_article_i18n（资讯多语言）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| article_id | varchar(32) | 资讯 ID |
+| language_code | varchar(10) | 语言代码 |
+| title | varchar(200) | 翻译标题 |
+| content | longtext | 翻译内容 |
+| status | tinyint(1) | 0待翻译/1已发布 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_article_language（联合唯一）
+
 #### content_note（游客笔记/攻略）
 
 | 列名 | 类型 | 说明 |
@@ -1783,6 +1836,24 @@
 
 **索引：** idx_marker_type, idx_status
 
+#### content_hand_map_i18n（手绘地图标注多语言）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| map_id | varchar(32) | 标注 ID |
+| language_code | varchar(10) | 语言代码 |
+| marker_name | varchar(100) | 翻译标注名称 |
+| description | varchar(500) | 翻译描述 |
+| status | tinyint(1) | 0待翻译/1已发布 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_map_language（联合唯一）
+
 #### content_route（导览路线）
 
 | 列名 | 类型 | 说明 |
@@ -1804,6 +1875,25 @@
 | del_flag | tinyint(1) | 0正常/1删除 |
 
 **索引：** uk_route_code, idx_area_id, idx_route_type
+
+#### content_route_i18n（路线多语言）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| route_id | varchar(32) | 路线 ID |
+| language_code | varchar(10) | 语言代码 |
+| route_name | varchar(200) | 翻译路线名称 |
+| description | text | 翻译路线介绍 |
+| waypoints | longtext | 翻译节点（JSON，含路径点名称翻译） |
+| status | tinyint(1) | 0待翻译/1已发布 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_route_language（联合唯一）
 
 #### content_interaction（UGC 互动记录）
 
