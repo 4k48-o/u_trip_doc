@@ -42,6 +42,7 @@
 | device_db | admin-service | device_printer, device_scanner, device_passport_reader, device_counter, device_cashier |
 | analytics_db | analytics-service | alert_*, report_*（分析类，与交易DB物理分离） |
 | rule_db | rule-service | rule_* |
+| notification_db | notification-service | 消息模板/发送日志复用 JEECG 的 sys_sms/sys_sms_template，通知服务通过 API 调用 jeecg-boot 库 |
 
 > 所有业务表遵循统一约定：InnoDB、utf8mb4_unicode_ci、snake_case、雪花 ID、审计字段、逻辑删除、无外键、无多租户。
 
@@ -81,6 +82,7 @@
 | real_name | varchar(100) | 真实姓名 |
 | id_type | varchar(20) | 证件类型 |
 | id_no | varchar(200) | 证件号（AES 加密） |
+| id_no_hash | varchar(64) | 证件号 SHA-256 哈希，唯一索引，用于去重查询（加密存储的同时支持唯一性校验） |
 | gender | varchar(10) | M/F/U |
 | birthday | date | 生日 |
 | nationality | varchar(50) | 国籍 |
@@ -93,9 +95,9 @@
 | update_time | datetime | 更新时间 |
 | del_flag | tinyint(1) | 0正常/1删除 |
 
-**索引：** uk_user_no, uk_phone, idx_status
+**索引：** uk_user_no, uk_phone, uk_id_no_hash, idx_status
 
-> **关联说明：** `order_main.user_id` / `ticket_reservation.user_id` 关联此表。`sys_user` 仅用于后台管理操作员。第三方登录绑定使用 JEECG 的 `sys_third_account` 表。
+> **说明：** `tourist_user.id_no_hash` 为证件号 SHA-256 哈希（同证件号生成相同哈希值），用于唯一性去重校验。原始证件号 `id_no` 仍为 AES 加密存储。`sys_third_account.sys_user_id` 存的是 `tourist_user.id`（C 端游客），与 `sys_user.id`（后台管理用户）互斥。一个微信/支付宝 UnionID 只绑定一个游客账号，通过 `sys_third_account.third_type + third_user_id` 唯一索引保证。双 Token 体系：C 端用 `tourist_*` 组 Token（仅可访问 `/api/v1/tourist/`），后台用 `admin/merchant/agent` 组 Token（仅可访问各自路由组）。
 
 ---
 
@@ -283,6 +285,11 @@
 | config_id | varchar(32) | 关联 season_config.id |
 | slot | varchar(20) | 时段（如 08:00-10:00） |
 | max_capacity | int(11) | 该时段最大容量 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
 
 **索引：** uk_config_slot（联合唯一）
 
@@ -523,9 +530,11 @@
 | need_real_name | tinyint(1) | 是否需要实名：0否/1是 |
 | max_buy_per_order | int(11) | 每单限购 |
 | valid_days | int(11) | 有效期（天） |
-| age_limit_min | int(11) | 年龄下限 |
-| age_limit_max | int(11) | 年龄上限 |
+| age_limit_min | int(11) | 年龄下限（硬限制——SKU 级别快速校验，如老人票 age≥60） |
+| age_limit_max | int(11) | 年龄上限（硬限制——SKU 级别快速校验） |
 | status | tinyint(1) | 0下架/1上架 |
+
+> **年龄校验优先级：** SKU 的 age_limit_min/max 作为**第一层硬限制**（在订单预览阶段即拦截）。rule_sale(rule_type=age_limit) 作为**第二层可配置规则**（用于复杂场景，如组合票的跨年龄限制）。两者不冲突：SKU 先判断，通过后再走 rule_sale 校验。如果 SKU 字段为 NULL 表示无限，仅靠 rule_sale 限制。
 | create_by | varchar(50) | 创建人 |
 | create_time | datetime | 创建时间 |
 | update_by | varchar(50) | 更新人 |
@@ -687,6 +696,8 @@
 | travel_date | date | 出行日期 |
 | refundable | tinyint(1) | 是否可退：1是/0否 |
 | insurance_flag | tinyint(1) | 是否含保险：0否/1是 |
+| insurance_product_id | varchar(32) | 保险产品 SKU ID（insurance_flag=1 时必填，用于存储保费和清分） |
+| insurance_amount | decimal(10,2) | 保费金额（冗余，便于对账，insurance_flag=1 时必填） |
 | pay_time | datetime | 支付时间 |
 | create_by | varchar(50) | 创建人 |
 | create_time | datetime | 创建时间 |
@@ -780,6 +791,7 @@
 | product_id | varchar(32) | SKU ID |
 | combo_id | varchar(32) | 组合产品 ID（如有） |
 | merchant_id | varchar(32) | 商户 ID |
+| channel | varchar(20) | 渠道（冗余自 order_main，避免跨库 JOIN 做分渠道清算） |
 | total_amount | decimal(10,2) | 订单金额 |
 | commission_rate | decimal(5,4) | 佣金比例 |
 | commission_amount | decimal(10,2) | 佣金金额 |
@@ -911,11 +923,40 @@
 
 **索引：** idx_user_id, idx_status
 
-#### face_lib（底库同步记录）
+#### face_lib（人脸底库同步记录）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| face_image_id | varchar(32) | 人像 ID |
+| target_device | varchar(100) | 目标终端（闸机/手持机编号） |
+| sync_status | tinyint(1) | 0待同步/1同步中/2已同步/3同步失败 |
+| sync_time | datetime | 同步时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_face_image_id, idx_sync_status
 
 #### face_verify_log（人脸识别记录）
 
-> 结构从略，篇幅关系。完整定义参见之前版本。
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| face_image_id | varchar(32) | 人像 ID |
+| device_id | varchar(32) | 终端 ID |
+| device_type | varchar(20) | gate/handheld |
+| score | decimal(5,2) | 比对分数 |
+| threshold | decimal(5,2) | 阈值 |
+| result | tinyint(1) | 1通过/0不通过 |
+| liveness_result | tinyint(1) | 1活体/0非活体 |
+| cost_time | int(11) | 耗时（毫秒） |
+| verify_time | datetime | 识别时间 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_face_image_id, idx_device_id, idx_verify_time
 
 ---
 
@@ -1028,6 +1069,8 @@
 | update_time | datetime | 更新时间 |
 | del_flag | tinyint(1) | 0正常/1删除 |
 
+**索引：** uk_coupon_code, idx_status, idx_start_time, idx_end_time
+
 #### marketing_coupon_use（优惠券使用记录）
 
 | 列名 | 类型 | 说明 |
@@ -1047,7 +1090,88 @@
 | update_time | datetime | 更新时间 |
 | del_flag | tinyint(1) | 0正常/1删除 |
 
-#### marketing_seckill、marketing_group_buy、marketing_distribution、marketing_commission — 结构从略
+#### marketing_seckill、marketing_group_buy、marketing_distribution、marketing_commission — 见下文
+
+#### marketing_seckill（秒杀活动）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| seckill_code | varchar(50) | 秒杀编码，唯一索引 |
+| sku_id | varchar(32) | 商品 SKU ID |
+| seckill_price | decimal(10,2) | 秒杀价 |
+| stock | int(11) | 秒杀库存 |
+| sold_count | int(11) | 已售数量 |
+| per_user_limit | int(11) | 每人限购 |
+| start_time | datetime | 开始时间 |
+| end_time | datetime | 结束时间 |
+| status | tinyint(1) | 0未开始/1进行中/2已结束 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_seckill_code, idx_sku_id, idx_start_time
+
+#### marketing_group_buy（拼团活动）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| group_code | varchar(50) | 拼团编码，唯一索引 |
+| sku_id | varchar(32) | 商品 SKU ID |
+| group_price | decimal(10,2) | 拼团价 |
+| min_count | int(11) | 成团人数 |
+| expire_hours | int(11) | 成团有效时间（小时） |
+| start_time | datetime | 活动开始时间 |
+| end_time | datetime | 活动结束时间 |
+| status | tinyint(1) | 0未开始/1进行中/2已结束 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_group_code, idx_sku_id, idx_start_time
+
+#### marketing_distribution（分销配置）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| user_id | varchar(32) | 分销员用户 ID |
+| share_code | varchar(50) | 推广码，唯一索引 |
+| share_link | varchar(500) | 推广链接 |
+| status | tinyint(1) | 0待审核/1通过/2驳回 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_share_code, idx_user_id
+
+#### marketing_commission（分销佣金记录）— marketing_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| distributor_id | varchar(32) | 分销员 ID |
+| order_id | varchar(32) | 来源订单 ID |
+| product_id | varchar(32) | 商品 SKU ID |
+| order_amount | decimal(10,2) | 订单金额 |
+| commission_rate | decimal(5,4) | 佣金比例 |
+| commission_amount | decimal(10,2) | 佣金金额 |
+| status | tinyint(1) | 0待结算/1已结算/2已提现 |
+| settle_time | datetime | 结算时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_distributor_id, idx_order_id, idx_status
 
 ---
 
@@ -1083,6 +1207,11 @@
 | id | varchar(32) | 主键 |
 | member_id | varchar(32) | 会员 ID |
 | tag | varchar(50) | 标签（如"亲子游"、"高频消费"） |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
 
 **索引：** uk_member_tag（联合唯一），idx_tag
 
@@ -1113,9 +1242,62 @@
 
 #### inv_supplier（供应商）
 
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| supplier_code | varchar(50) | 供应商编码，唯一索引 |
+| supplier_name | varchar(200) | 供应商名称 |
+| contact_name | varchar(100) | 联系人 |
+| contact_phone | varchar(50) | 联系电话 |
+| address | varchar(500) | 地址 |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_supplier_code
+
 #### inv_goods（商品/物料）
 
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| goods_code | varchar(50) | 商品条码，唯一索引 |
+| goods_name | varchar(200) | 商品名称 |
+| category_id | varchar(32) | 商品类别 |
+| supplier_id | varchar(32) | 供应商 ID |
+| spec | varchar(200) | 规格 |
+| unit | varchar(20) | 单位 |
+| cost_price | decimal(10,2) | 成本价 |
+| sell_price | decimal(10,2) | 售价 |
+| low_stock_alert | int(11) | 低库存预警线 |
+| status | tinyint(1) | 0下架/1上架 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_goods_code, idx_category_id, idx_supplier_id
+
 #### inv_stock（库存）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| goods_id | varchar(32) | 商品 ID |
+| store_id | varchar(32) | 门店 ID |
+| quantity | int(11) | 当前库存数量 |
+| frozen_quantity | int(11) | 冻结数量 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_goods_store（联合唯一）
 
 #### inv_inbound（入库单）— 不含 unique_code，明细独立
 
@@ -1257,7 +1439,7 @@
 | change_snapshot | text | 变更内容（JSON diff） |
 | operator | varchar(50) | 操作人 |
 | create_time | datetime | 操作时间 |
-
+| del_flag | tinyint(1) | 0正常/1删除 |
 #### ota_voucher（OTA 凭证）
 
 | 列名 | 类型 | 说明 |
@@ -1298,6 +1480,13 @@
 | diff_amount | decimal(10,2) | 差异金额 |
 | diff_type | varchar(50) | ota_only(OTA有本地无)/local_only(本地有OTA无)/amount_mismatch(金额不一致) |
 | status | tinyint(1) | 0待处理/1已处理/2已忽略 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_reconciliation_id, idx_status
 
 ---
 
@@ -1332,7 +1521,56 @@
 
 ### 3.16 车辆服务 — vehicle_db
 
-#### vehicle_info、vehicle_gps_log、vehicle_route_alert
+#### vehicle_info、vehicle_gps_log、vehicle_route_alert — 见下文
+
+#### vehicle_info（车辆信息）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| vehicle_code | varchar(50) | 车辆编号，唯一索引 |
+| vehicle_name | varchar(100) | 车辆名称 |
+| plate_no | varchar(20) | 车牌号 |
+| vehicle_type | varchar(20) | 车辆类型 |
+| device_id | varchar(32) | 车载终端 ID |
+| status | tinyint(1) | 0离线/1在线/2维修 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_vehicle_code
+
+#### vehicle_gps_log（GPS 定位记录）— BIGINT 自增，按月分区，同 IoT 优化策略
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | bigint(20) | 主键，AUTO_INCREMENT |
+| vehicle_id | varchar(32) | 车辆 ID |
+| longitude | decimal(12,8) | 经度 |
+| latitude | decimal(12,8) | 纬度 |
+| speed | decimal(6,2) | 速度 |
+| direction | int(11) | 方向角 |
+| gps_time | datetime | 定位时间 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_vehicle_gps_time（联合），PARTITION BY RANGE (TO_DAYS(gps_time))
+
+#### vehicle_route_alert（路线异常告警）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| vehicle_id | varchar(32) | 车辆 ID |
+| alert_type | varchar(20) | route_deviation/over_speed/long_stop |
+| alert_detail | text | 告警详情（JSON） |
+| gps_log_id | varchar(32) | 对应的 GPS 记录 ID |
+| status | tinyint(1) | 0未处理/1已处理 |
+| operator | varchar(50) | 处理人 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_vehicle_id, idx_alert_type
 
 > vehicle_gps_log 使用 BIGINT 自增主键，按月分区，同 IoT 表优化策略。结构从略。
 
@@ -1340,7 +1578,52 @@
 
 ### 3.17 内容服务 — content_db
 
-#### content_article、content_note
+#### content_article、content_note — 见下文
+
+#### content_article（资讯/公告文章）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| title | varchar(200) | 标题 |
+| content | longtext | 内容 |
+| category | varchar(20) | news/culture/notice/activity |
+| cover_image | varchar(500) | 封面图 |
+| author | varchar(100) | 作者 |
+| publish_time | datetime | 发布时间 |
+| status | tinyint(1) | 0草稿/1已发布/2已下架 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_category, idx_publish_time, idx_status
+
+#### content_note（游客笔记/攻略）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| user_id | varchar(32) | 发布用户 ID |
+| title | varchar(200) | 标题 |
+| content | longtext | 内容 |
+| images | text | 图片列表（JSON） |
+| tags | varchar(200) | 标签 |
+| like_count | int(11) | 点赞数 |
+| collect_count | int(11) | 收藏数 |
+| share_count | int(11) | 分享数 |
+| audit_status | tinyint(1) | 0待审核/1通过/2驳回 |
+| is_top | tinyint(1) | 0不置顶/1置顶 |
+| is_essence | tinyint(1) | 0不加精/1加精 |
+| publish_time | datetime | 发布时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_user_id, idx_audit_status, idx_publish_time
 
 #### content_audio_guide（语音讲解）
 
@@ -1362,14 +1645,175 @@
 
 **索引：** idx_scenic_spot_id, idx_language, idx_sort_no
 
-#### content_hand_map、content_route、content_interaction — 结构从略
+#### content_hand_map（手绘地图标注）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| marker_name | varchar(100) | 标注名称 |
+| marker_type | varchar(20) | scenic/toilet/restaurant/parking/cable_car/facility |
+| longitude | decimal(12,8) | 经度 |
+| latitude | decimal(12,8) | 纬度 |
+| icon_url | varchar(500) | 图标 URL |
+| description | varchar(500) | 描述 |
+| sort_no | int(11) | 排序 |
+| status | tinyint(1) | 0隐藏/1显示 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_marker_type, idx_status
+
+#### content_route（导览路线）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| route_code | varchar(50) | 路线编码，唯一索引 |
+| route_name | varchar(200) | 路线名称 |
+| area_id | varchar(32) | 所属景区 ID |
+| route_type | varchar(20) | recommend/family/senior/quick |
+| waypoints | longtext | 路线节点（JSON） |
+| total_distance | int(11) | 总距离（米） |
+| estimated_duration | int(11) | 预估时长（分钟） |
+| description | text | 路线介绍 |
+| status | tinyint(1) | 0下架/1上架 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_route_code, idx_area_id, idx_route_type
+
+#### content_interaction（UGC 互动记录）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| user_id | varchar(32) | 操作用户 ID |
+| target_type | varchar(20) | note/article/audio_guide |
+| target_id | varchar(32) | 目标 ID |
+| interaction_type | varchar(20) | like/collect/share/view |
+| status | tinyint(1) | 1有效/0取消 |
+| create_time | datetime | 交互时间 |
+
+**索引：** idx_user_target（联合），idx_target_type_id
 
 ---
 
 ### 3.18 规则与预警 — rule_db + analytics_db
 
-#### rule_sale、rule_refund、rule_verify — rule_db（结构从略）
-#### alert_rule、alert_log — analytics_db（结构从略）
+#### rule_sale（销售规则）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| rule_code | varchar(50) | 规则编码，唯一索引 |
+| rule_name | varchar(200) | 规则名称 |
+| target_type | varchar(20) | spu/sku/combo |
+| target_id | varchar(32) | 绑定对象 ID |
+| rule_type | varchar(50) | age_limit/id_type_limit/combo_required/channel_limit/buy_limit/user_type_limit |
+| rule_params | text | 规则参数（JSON） |
+| error_msg | varchar(500) | 触发规则提示 |
+| priority | int(11) | 优先级（数字越小越高） |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_rule_code, idx_target_type_id, idx_rule_type, idx_status
+
+#### rule_refund（退票规则）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| rule_code | varchar(50) | 规则编码，唯一索引 |
+| rule_name | varchar(200) | 规则名称 |
+| target_type | varchar(20) | spu/sku/combo |
+| target_id | varchar(32) | 绑定对象 ID |
+| refund_time_scope | varchar(20) | before_visit/after_visit/anytime |
+| hours_before | int(11) | 游览前 N 小时内 |
+| refund_rate | decimal(5,4) | 退款比例（1.0000=全额） |
+| allow_partial | tinyint(1) | 0否/1是 |
+| cancel_fee_json | text | 携程格式退改费率列表（JSON） |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_rule_code, idx_target_type_id, idx_status
+
+#### rule_verify（验票规则）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| rule_code | varchar(50) | 规则编码，唯一索引 |
+| rule_name | varchar(200) | 规则名称 |
+| target_type | varchar(20) | spu/sku/scenic_spot/scenic_area |
+| target_id | varchar(32) | 绑定对象 ID |
+| rule_type | varchar(50) | unique_entry/verify_deadline/offline_allow/gate_whitelist/single_use/re_entry_interval |
+| rule_params | text | 规则参数（JSON） |
+| error_msg | varchar(500) | 触发规则提示 |
+| priority | int(11) | 优先级 |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_rule_code, idx_target_type_id, idx_rule_type, idx_status
+
+#### alert_rule（预警规则）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| alert_code | varchar(50) | 预警编码，唯一索引 |
+| alert_name | varchar(200) | 预警名称 |
+| alert_type | varchar(20) | visitor_drop/sales_drop/device_fault/rent_arrears/capacity/security |
+| target_type | varchar(20) | scenic_area/scenic_spot/device_gate/device_handheld/store |
+| target_id | varchar(32) | 监控对象 ID |
+| metric_field | varchar(100) | 监控指标字段 |
+| compare_type | varchar(20) | absolute/yoy/mom |
+| threshold | decimal(10,2) | 阈值 |
+| threshold_direction | varchar(10) | below/above |
+| notify_channels | varchar(200) | sms,email,wechat,led,weibo |
+| notify_roles | varchar(200) | 通知角色 |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_alert_code, idx_alert_type, idx_status
+
+#### alert_log（预警触发记录）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| alert_id | varchar(32) | 预警规则 ID |
+| trigger_value | decimal(10,2) | 触发时的实际值 |
+| threshold_value | decimal(10,2) | 触发时的阈值 |
+| notify_result | varchar(20) | success/fail/partial |
+| notify_detail | text | 通知详情（JSON） |
+| handled_by | varchar(50) | 处理人 |
+| handle_time | datetime | 处理时间 |
+| handle_remark | varchar(500) | 备注 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_alert_id, idx_create_time
 
 ---
 

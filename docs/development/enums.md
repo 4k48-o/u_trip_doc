@@ -51,6 +51,101 @@
 | PARTIAL_REFUND | 6 | 部分退款 |
 | CLOSED | 7 | 已关闭（超时未支付） |
 
+### 预约状态 (ReservationStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| RESV_PENDING | 1 | 待支付 |
+| RESV_PAID | 2 | 已支付 |
+| RESV_RESCHEDULED | 3 | 已改签 |
+| RESV_CANCELLED | 4 | 已取消 |
+| RESV_VERIFIED | 5 | 已核销 |
+
+### 核销状态 (VerifyStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| NOT_VERIFIED | 0 | 未核销 |
+| VERIFIED | 1 | 已核销 |
+| PARTIAL_VERIFIED | 2 | 部分核销 |
+
+### 支付状态 (PayStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| PAY_PENDING | 1 | 待支付 |
+| PAY_SUCCESS | 2 | 支付成功 |
+| PAY_FAILED | 3 | 支付失败 |
+| PAY_REFUNDED | 4 | 已退款 |
+
+### 退款状态 (RefundStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| REFUND_PENDING | 1 | 待审核 |
+| REFUND_APPROVED | 2 | 审核通过 |
+| REFUND_PROCESSING | 3 | 退款中 |
+| REFUND_COMPLETED | 4 | 已退款 |
+| REFUND_REJECTED | 5 | 已拒绝 |
+
+### 渠道类型 (ChannelType)
+
+| 枚举值 | 说明 |
+|--------|------|
+| online | 线上（小程序等自有渠道聚合） |
+| window | 窗口售票 |
+| ota | OTA 分销 |
+| agent | 旅行社 |
+| merchant | 商户 |
+
+### 商户状态 (MerchantStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| MER_AUDITING | 0 | 待审核 |
+| MER_ACTIVE | 1 | 正常 |
+| MER_DISABLED | 2 | 已禁用 |
+| MER_REJECTED | 3 | 已驳回 |
+
+### 旅行社分组 (AgencyGroupType)
+
+| 枚举值 | 说明 |
+|--------|------|
+| key | 重点旅行社 |
+| normal | 普通旅行社 |
+| society | 社会团体 |
+| restaurant | 周边餐馆 |
+
+### OTA 凭证状态 (VoucherStatus)
+
+| 枚举值 | 说明 |
+|--------|------|
+| pending | 待发送 |
+| sent | 已发送 |
+| consumed | 已核销 |
+| expired | 已过期 |
+
+### 证件类型 (IdType)
+
+| 枚举值 | 说明 |
+|--------|------|
+| ID_CARD | 身份证 |
+| PASSPORT | 护照 |
+| HK_MO | 港澳通行证 |
+| TAIWAN | 台湾通行证 |
+| PERMANENT_RESIDENCE | 外国人永久居留证 |
+| STUDENT_CARD | 学生证 |
+| MILITARY_ID | 军官证 |
+| DRIVERS_LICENSE | 驾驶证 |
+
+### 年卡状态 (AnnualCardStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| CARD_ACTIVE | 1 | 正常 |
+| CARD_EXPIRED | 0 | 已过期 |
+| CARD_REPORTED_LOSS | 2 | 已挂失 |
+
 ---
 
 ## 3. 系统常量
