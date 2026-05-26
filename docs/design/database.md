@@ -535,8 +535,6 @@
 | age_limit_min | int(11) | 年龄下限（硬限制——SKU 级别快速校验，如老人票 age≥60） |
 | age_limit_max | int(11) | 年龄上限（硬限制——SKU 级别快速校验） |
 | status | tinyint(1) | 0下架/1上架 |
-
-> **年龄校验优先级：** SKU 的 age_limit_min/max 作为**第一层硬限制**（在订单预览阶段即拦截）。rule_sale(rule_type=age_limit) 作为**第二层可配置规则**（用于复杂场景，如组合票的跨年龄限制）。两者不冲突：SKU 先判断，通过后再走 rule_sale 校验。如果 SKU 字段为 NULL 表示无限，仅靠 rule_sale 限制。
 | create_by | varchar(50) | 创建人 |
 | create_time | datetime | 创建时间 |
 | update_by | varchar(50) | 更新人 |
@@ -544,6 +542,8 @@
 | del_flag | tinyint(1) | 0正常/1删除 |
 
 **索引：** uk_sku_code, idx_spu_id, idx_status
+
+> **年龄校验优先级：** SKU 的 age_limit_min/max 作为**第一层硬限制**（在订单预览阶段即拦截）。rule_sale(rule_type=age_limit) 作为**第二层可配置规则**（用于复杂场景，如组合票的跨年龄限制）。两者不冲突：SKU 先判断，通过后再走 rule_sale 校验。如果 SKU 字段为 NULL 表示无限，仅靠 rule_sale 限制。
 
 #### product_combo（组合产品）
 
@@ -1405,7 +1405,7 @@
 | rent_start_time | datetime | 开始租借时间（扫码取设备时） |
 | rent_end_time | datetime | 实际归还时间 |
 | expected_return_time | datetime | 预计归还时间（取设备时按计费规则计算） |
-| fee_type | varchar(20) | hourly（按小时）/ daily（按天）/ fixed（固定） |
+| billing_type | varchar(20) | hourly（按小时）/ daily（按天）/ fixed（固定） |
 | unit_price | decimal(10,2) | 计费单价 |
 | rent_fee | decimal(10,2) | 租赁费（归还时结算） |
 | deposit_amount | decimal(10,2) | 押金金额（支付时一并收取） |
@@ -1507,6 +1507,9 @@
 | operator | varchar(50) | 操作人 |
 | create_time | datetime | 操作时间 |
 | del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_mapping_id, idx_create_time
+
 #### ota_voucher（OTA 凭证）
 
 | 列名 | 类型 | 说明 |
@@ -1891,4 +1894,4 @@
 | JEECG Boot 系统表（保留） | 61 | 用户/角色/权限/组织/字典/日志/消息/文件/任务/网关/多数据源 |
 | JEECG Boot 可选表（按需） | 62 | Online 低代码/JimuReport/AI 模块 |
 | Nacos + XXL-JOB（独立库） | 11 | 微服务基础设施 |
-| **绥中业务表** | **~88** | 按 18 个服务库分布 |
+| **绥中业务表** | **~92** | 按 20 个独立服务库分布（ticket/product/order/settlement/invoice/face/merchant/marketing/member/inventory/rental/traffic/integration/scenic/vehicle/content/device/analytics/rule/notification） |
