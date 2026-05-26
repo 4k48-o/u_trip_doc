@@ -1011,7 +1011,7 @@ X-Idempotent-Key: uuid-v4
 
 **Auth:** Bearer Token。
 
-**响应records字段：** applyId, amount, invoiceType, invoiceTitle, status, statusText, invoiceUrl, createTime。
+**响应records字段：** applyNo, amount, invoiceType, invoiceTitle, status, statusText, invoiceUrl, createTime。
 
 ---
 
