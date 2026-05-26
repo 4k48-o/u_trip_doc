@@ -2,6 +2,22 @@
 
 > 面向景区运营管理者、财务人员、超级管理员。全部需要 JWT Token + RBAC 角色权限。
 
+## 权限标识
+
+| 权限标识 | 说明 |
+|----------|------|
+| `admin:product:*` | 商品管理全部权限 |
+| `admin:order:*` | 订单管理全部权限 |
+| `admin:ticket:*` | 票务管理全部权限 |
+| `admin:settlement:*` | 清分结算权限 |
+| `admin:member:*` | 会员管理权限 |
+| `admin:merchant:*` | 商户管理权限 |
+| `admin:marketing:*` | 营销管理权限 |
+| `admin:report:*` | 报表查看权限 |
+| `admin:system:*` | 系统配置权限（超管） |
+
+> 各端点同时支持 `*.create`、`*.update`、`*.delete`、`*.view` 细粒度权限。例如 `admin:product:create` 控制是否可以新增商品。
+
 ---
 
 ## 1. 景区与景点管理
@@ -75,11 +91,17 @@
 | 参数 | 必填 | 说明 |
 |------|------|------|
 | categoryCode | 否 | 业态筛选 |
+| scenicSpotId | 否 | 按景点筛选 |
+| merchantId | 否 | 按商户筛选 |
+| passengerType | 否 | Adult/Child/Senior/Youth/Infant |
+| primaryLanguage | 否 | 按原始录入语言筛选 |
 | keyword | 否 | SPU 名称/编码 |
 | status | 否 | 0下架/1上架 |
-| pageNo / pageSize | 否 | — |
+| sortBy | 否 | price_asc/price_desc/sales_desc/create_desc，默认 create_desc |
+| pageNo | 否 | 默认 1 |
+| pageSize | 否 | 默认 20 |
 
-**响应records关键字段：** spuId, spuCode, spuName, categoryCode, categoryName, minPrice, maxPrice, status, statusText, createTime, skuCount。
+**响应records关键字段：** spuId, spuCode, spuName, categoryCode, categoryCodes(JSON数组), categoryName, minPrice, maxPrice, status, statusText, soldCount, primaryLanguage, tags, createTime, skuCount。
 
 ### 2.2 新增商品
 
@@ -107,6 +129,13 @@
   "deliveryMethod": "DIGITAL",
   "redemptionType": "Direct_Entry",
   "bookingCutoffTime": "{\"dayBeforeVisitDate\":0,\"time\":\"08:00\"}",
+  "categoryCodes": "[\"ATTRACTION_TICKET\"]",
+  "primaryLanguage": "zh-CN",
+  "reference": "TICKET_REF_001",
+  "serviceLanguages": "[\"zh-CN\",\"en\",\"ja\",\"ko\"]",
+  "guestInfoType": "PER_PERSON",
+  "guestInfoCodes": "[\"GUEST_NAME\",\"ID_CARD\",\"COUNTRY\"]",
+  "paymentConfirmationTime": 30,
   "durationValue": 1,
   "durationUnit": "Day",
   "status": 1,
@@ -126,6 +155,7 @@
     "passengerType": "Adult",
     "netPriceCurrency": "CNY",
     "retailPriceCurrency": "CNY",
+    "billingType": "one_time",
     "validDays": 1,
     "ageLimitMin": 19,
     "ageLimitMax": 59
@@ -154,15 +184,23 @@
 
 > **SPU 级新增字段：** 除示例中字段外，创建/编辑 SPU 时可传 `categoryCodes`（JSON数组）、`primaryLanguage`、`reference`、`metaData`、`serviceLanguages`（JSON数组）、`guestInfoType`（PER_PERSON/PER_ORDER）、`guestInfoCodes`（JSON数组）、`paymentConfirmationTime`（分钟）。
 
+> **specDesc 字段 schema：** SKU 的 `specDesc` 为 JSON 字符串，支持 `ageMin`（int）、`ageMax`（int/null）、`idType`（string数组如 `["ID_CARD","PASSPORT"]`）等规格维度。由前端自由组合，后端透传不做额外校验。
+
 ### 2.3 编辑商品
 
-**PUT** `/api/v1/admin/products/{spuId}` — 编辑 SPU 基本信息
+**PUT** `/api/v1/admin/products/{spuId}` — 编辑 SPU 基本信息（部分更新，传什么改什么）
 
-**PUT** `/api/v1/admin/products/{spuId}/sku/{skuId}` — 编辑 SKU
+**PUT** `/api/v1/admin/products/{spuId}/sku/{skuId}` — 编辑 SKU（部分更新）
+
+**DELETE** `/api/v1/admin/products/{spuId}/sku/{skuId}` — 删除 SKU（仅当该 SKU 无未核销订单时允许）
 
 ### 2.4 组合产品管理
 
-**POST** `/api/v1/admin/products/combo`
+**GET** `/api/v1/admin/products/combo` — 组合产品列表 `?keyword=X&comboType=Y&status=Z`
+
+**GET** `/api/v1/admin/products/combo/{comboId}` — 组合产品详情
+
+**POST** `/api/v1/admin/products/combo` — 创建组合产品
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -176,6 +214,14 @@
 | items[].sellPrice | string | 是 | 分项售价 |
 | items[].settlePrice | string | 是 | 分项结算价（清分基准） |
 | items[].required | boolean | 是 | 是否必选 |
+
+**PUT** `/api/v1/admin/products/combo/{comboId}` — 编辑组合产品
+
+**PUT** `/api/v1/admin/products/combo/{comboId}/status` — 启停 `{ "status": 0 }`
+
+**DELETE** `/api/v1/admin/products/combo/{comboId}` — 删除组合（仅无关联订单时允许）
+
+> 子 SKU 下架时，包含该 SKU 的组合产品自动标记为 inactive，并在管理端预警提示。
 
 ---
 
@@ -219,19 +265,25 @@
 
 ### 2.7 多语言内容
 
-**POST** `/api/v1/admin/products/{spuId}/languages`
+**GET** `/api/v1/admin/products/{spuId}/languages` — 查询所有已录入语言内容
 
-| 字段 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| languageCode | string | 是 | zh-CN / en / ja / ko / ru / fr / es / ar |
-| title | string | 否 | 多语言名称 |
-| description | string | 否 | 多语言描述 |
-| notice | string | 否 | 多语言须知 |
-| refundPolicy | string | 否 | 多语言退改规则 |
-| inclusions | string | 否 | 多语言包含项 |
-| exclusions | string | 否 | 多语言不含项 |
-| highlight | string | 否 | 多语言亮点 |
-| howToUse | string | 否 | 多语言使用方法 |
+**POST** `/api/v1/admin/products/{spuId}/languages` — 设置 SPU 级多语言
+
+| 字段 | 必填 | 说明 |
+|------|------|------|
+| languageCode | 是 | zh-CN / en / ja / ko / ru / fr / es / ar |
+| title | 否 | 多语言名称 |
+| description | 否 | 多语言描述 |
+| notice | 否 | 多语言须知 |
+| refundPolicy | 否 | 多语言退改规则 |
+
+> **结构化子表多语言：** inclusions/exclusions/highlights/how-to-use 已拆分独立子表，翻译通过子表记录 ID 关联：
+
+**POST** `/api/v1/admin/products/{spuId}/inclusions/{itemId}/languages` — `{ "languageCode":"en", "content":"Adult ticket x1" }`
+
+**GET** `/api/v1/admin/products/{spuId}/inclusions/{itemId}/languages` — 查指定条目的翻译
+
+> exclusions/highlights/how-to-use 同理。
 
 ### 2.8 选项/时段管理
 
@@ -262,8 +314,8 @@
 | date | string | 是 | 日期 |
 | timeSlot | string | 是 | 时段 |
 | channel | string | 是 | 渠道 |
-| newTotalStock | int | 否 | 新总库存 |
-| adjustUsedStock | int | 否 | 调整已售（+增/-减，含变更原因） |
+| newTotalStock | int | 否 | 新总库存（与 adjustUsedStock 互斥，二选一必填） |
+| adjustUsedStock | int | 否 | 调整已售（与 newTotalStock 互斥，二选一必填） |
 | adjustReason | string | 是 | 调整原因 |
 
 ---
@@ -272,25 +324,66 @@
 
 **POST** `/api/v1/admin/products/batch-import` — Excel 批量导入（multipart/form-data）
 
-> Excel 模板列：`序号 | SPU编码 | SPU名称 | 业态分类 | SKU编码 | SKU名称 | 价格类型 | 人群类型 | 原价 | 售价 | 成本价 | 币种 | 最小份数 | 最大限购 | 每份人数 | 年龄下限 | 年龄上限 | 是否实名 | 有效期 | 是否必组合`
+> 模板列：`序号 | SPU编码 | SPU名称 | 业态分类 | SKU编码 | SKU名称 | 价格类型(FULL/DISCOUNT/FREE) | 人群类型(Adult/Child/Senior/Youth/Infant/Student/Traveler/Customized) | 原价 | 售价 | 成本价 | 币种(CNY/USD/...) | 最小份数 | 最大限购 | 每份人数 | 年龄下限 | 年龄上限 | 是否实名 | 有效期 | 是否必组合`
 
-**GET** `/api/v1/admin/products/export` — 导出全量商品 Excel
+> **错误处理：** 部分行校验失败不阻塞成功行（逐行处理），失败明细通过异步通知返回。导入结果通过 `GET /admin/products/batch-import/{batchId}` 查询。
+
+**GET** `/api/v1/admin/products/export?categoryCode=X&status=Y&startDate=A&endDate=B` — 导出全量商品 Excel
 
 ### 2.11 结构化子表管理
 
-> 以下 6 组端点管理 product_spu 的关联子表（替代原 text 字段）。
+> 以下端点管理 product_spu 的关联子表，完整 schema 如下。
 
-**行程 CRUD：** `/api/v1/admin/products/{spuId}/itinerary` — GET/POST/PUT/DELETE（含 day/item/food/accommodation/start/end 嵌套）
+**行程 CRUD：** `/api/v1/admin/products/{spuId}/itinerary`
 
-**核销地点：** `/api/v1/admin/products/{spuId}/redemption-locations` — GET/POST/DELETE
+| 方法 | 说明 | 请求体 |
+|------|------|--------|
+| GET | 查行程（含 day/item/food/accommodation/start/end 嵌套） | — |
+| POST | 创建行程 | `{ "startType":"Meet_at_Start_Point", "endType":"End_on_the_Spot", "days":[{ "dayNumber":1, "items":[{ "time":"09:00","poiId":"...","feeInclusions":"Exclude" }], "food":[{ "time":"12:00","mealType":"Lunch","feeInclusions":"Exclude" }], "accommodation":[{"poiId":"...","description":"..."}] }], "starts":[{ "startTime":"08:00","startType":"Meet_at_Start_Point","poiId":"...","description":"..." }], "ends":[{ "endTime":"18:00","endType":"End_on_the_Spot","poiId":"...","description":"..." }] }` |
+| PUT | 编辑行程 | 同 POST |
+| DELETE | 删除行程 | — |
 
-**预订问题：** `/api/v1/admin/products/{spuId}/booking-questions` — 含 question + answer 嵌套
+**核销地点：** `/api/v1/admin/products/{spuId}/redemption-locations`
 
-**标签：** `/api/v1/admin/products/{spuId}/tags` — 管理 tag_mapping 关联
+| 方法 | 请求体 |
+|------|--------|
+| GET | — |
+| POST | `{ "name":"南口售票处", "addressDetail":"...", "longitude":116.56, "latitude":40.43, "description":"请在此换票" }` |
+| PUT `.../{id}` | 同 POST |
+| DELETE `.../{id}` | — |
+
+**预订问题：** `/api/v1/admin/products/{spuId}/booking-questions`
+
+| 方法 | 请求体 |
+|------|--------|
+| GET | —（返回 question + answers 嵌套） |
+| POST | `{ "code":"Q001", "name":"请选择语言", "answerType":"Single_Selection", "answers":[{ "code":"A1","name":"中文导游" },{ "code":"A2","name":"English guide" }] }` |
+| PUT `.../{id}` | 同 POST |
+| DELETE `.../{id}` | — |
+
+**标签：** `/api/v1/admin/products/{spuId}/tags`
+
+| 方法 |
+|------|
+| GET（返回已关联标签列表） |
+| PUT（全量替换关联 `{ "tagIds": ["T001","T002"] }`） |
 
 **目的地/出发地：** `/api/v1/admin/products/{spuId}/destination` + `.../departure`
 
-**列表项：** `/api/v1/admin/products/{spuId}/inclusions` — GET/POST/PUT/DELETE `/exclusions` `/highlights` `/how-to-use` — 单条 CRUD，自动校验字符数
+| 方法 | 请求体 |
+|------|--------|
+| GET/POST/PUT/DELETE | `{ "supplierId":"...", "googlePlaceId":"...", "name":"北京" }` |
+
+**列表项 CRUD：**
+
+| 端点 | 方法 | 请求体 |
+|------|------|--------|
+| `/products/{spuId}/inclusions` | GET/POST/PUT/DELETE | `{ "content":"成人门票1张", "sortNo":1 }` |
+| `/products/{spuId}/exclusions` | GET/POST/PUT/DELETE | `{ "content":"缆车费用", "sortNo":1 }` |
+| `/products/{spuId}/highlights` | GET/POST/PUT/DELETE | `{ "content":"世界文化遗产", "sortNo":1 }` |
+| `/products/{spuId}/how-to-use` | GET/POST/PUT/DELETE | `{ "content":"凭二维码扫码入园", "sortNo":1 }` |
+
+> inclusion ≤500字符×20条，highlight_item ≤200字符×3条，exclusion/how_to_use ≤500字符×20条。
 
 ---
 
