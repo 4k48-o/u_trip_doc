@@ -1,6 +1,6 @@
 # API 接口设计
 
-> 按消费端分 5 个 API 组，每个组独立成文。后端共享 Service 层，网关层按路由前缀统一拦截鉴权。
+> 按消费端分 6 个 API 组，每个组独立成文。后端共享 Service 层，网关层按路由前缀统一拦截鉴权。
 
 ---
 
@@ -14,6 +14,8 @@
 | 旅行社端 | `/api/v1/agent/` | [agent.md](api/agent.md) | ~15 | JWT + 分组 |
 | OTA 开放 | `/api/v1/ota/` | [ota.md](api/ota.md) | ~15 | AK/SK + 签名 |
 | 公共 | `/api/v1/auth/`, `/api/v1/common/` | [common.md](api/common.md) | ~10 | 部分 |
+
+> **租赁业务（rental）** 接口归属：游客端新增租赁相关端点（可租设备查询/预约/扫码取还 ~5个，计入 tourist ~50），管理端新增设备台账管理/租赁订单查询（~5个，计入 admin ~105）。不单独开设 API 组，由游客端和管理端承载。
 
 ## 通用规范
 

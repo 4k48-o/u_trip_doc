@@ -8,10 +8,10 @@
 | 格式 | JSON（Content-Type: application/json） |
 | 编码 | UTF-8（URL 参数使用 encodeURIComponent） |
 | 版本 | URL 路径版本 `/api/v1/` |
-| 日期格式 | `yyyy-MM-dd`（日期），`yyyy-MM-dd HH:mm:ss`（日期时间） |
+| 日期格式 | `yyyy-MM-dd`（纯日期，如 visit_date / settle_date / 业务日期字段）；`yyyy-MM-dd HH:mm:ss`（日期时间，如 create_time / pay_time / 业务时间戳字段） |
 | 金额字段 | 字符串 `"120.00"`，避免浮点精度问题 |
-| 布尔字段 | `0/1`（tinyint 映射），前端展示为 true/false |
-| 时间戳 | 毫秒级 Unix 时间戳 |
+| 布尔字段 | API 响应统一使用 JSON `true/false`（非 0/1）。数据库层存储 tinyint(1) 由 ORM/序列化层自动转换 |
+| 时间戳 | 毫秒级 Unix 时间戳（long 类型），仅用于 `timestamp`（响应信封）和 WebSocket 消息时间 |
 
 ## 2. 鉴权方式
 
@@ -104,15 +104,17 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 
 ## 5. 敏感信息处理
 
+> **传输加密说明：** "传输"列中的 AES-128-CBC 仅指 **OTA 开放 API** 的请求体签名加密（AK/SK + AES-128-CBC，密钥/IV 由 OTA 平台分配和管理）。游客端/管理端/商户端/旅行社端 API 的传输加密由 HTTPS（TLS 1.3）保证，不做应用层字段级 AES 加密。
+
 | 数据 | 存储 | 传输 | 日志 | 响应 |
 |------|------|------|------|------|
-| 密码 | bcrypt 哈希 | HTTPS + 不传明文 | 不记录 | 不返回 |
-| 身份证号 | AES-256 加密 | AES-128-CBC 加密 | 不记录 | 脱敏 `110***********1234` |
-| 手机号 | AES-256 加密 | AES-128-CBC 加密 | 脱敏 `138****1234` | 脱敏 |
-| 护照号 | AES-256 加密 | AES-128-CBC 加密 | 不记录 | 脱敏 `E****1234` |
+| 密码 | bcrypt 哈希 | HTTPS | 不记录 | 不返回 |
+| 身份证号 | AES-256 加密 | HTTPS | 不记录 | 脱敏 `110***********1234` |
+| 手机号 | AES-256 加密 | HTTPS | 脱敏 `138****1234` | 脱敏 |
+| 护照号 | AES-256 加密 | HTTPS | 不记录 | 脱敏 `E****1234` |
 | Token | Redis 存储 | HTTPS Header | 不记录 | 仅登录时返回 |
-| 人脸图片 | AES-256 加密 | AES-128-CBC 加密 | 不记录 | 不返回原始图片，仅返回缩略图 URL |
-| 支付密码 | bcrypt 哈希 | HTTPS + 不传明文 | 不记录 | 不返回 |
+| 人脸图片 | AES-256 加密 | HTTPS | 不记录 | 不返回原始图片，仅返回缩略图 URL |
+| 支付密码 | bcrypt 哈希 | HTTPS | 不记录 | 不返回 |
 
 ## 6. 幂等性
 
@@ -122,6 +124,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiJ9...
 | 支付 | 支付平台保证幂等（transaction_id 去重） |
 | 退款 | `refund_no` 唯一索引，重复请求返回已有结果 |
 | OTA 回调 | `sequenceId` 去重 |
+| 租赁取设备 | `device_no` + 请求时间窗口，同一设备 30 秒内重复扫描返回已有租赁单 |
+| 租赁归还 | `rental_no` 去重，已归还的租赁单重复请求返回已有结算结果 |
 
 **幂等键传递：**
 ```
@@ -137,6 +141,8 @@ X-Idempotent-Key: uuid-v4
 | 通用查询 | 同用户每秒 100 次 |
 | 下单 | 同用户每秒 10 次 |
 | OTA 回调 | 同 OTA 每秒 100 次 |
+| OTA 查询（价格/库存） | 同 OTA 每秒 50 次，超过返回 429 |
+| 租赁取/还设备 | 同用户每秒 5 次 |
 | 文件上传 | 同 IP 每分钟 20 次 |
 
 超限响应：
@@ -180,3 +186,5 @@ X-Idempotent-Key: uuid-v4
 | 大屏实时数据 | `dashboard_update` | 同 REST 响应 data |
 | AI 对话流式 | `ai_stream` | `{"sessionId":"...","chunk":"一段文字"}` |
 | 预警推送 | `alert_triggered` | `{"alertId":"...","alertName":"..."}` |
+| 租赁逾期提醒 | `rental_overdue` | `{"rentalNo":"...","deviceName":"...","overdueFee":"..."}` |
+| 租赁归还确认 | `rental_return_confirm` | `{"rentalNo":"...","rentFee":"...","depositRefund":"..."}` |
