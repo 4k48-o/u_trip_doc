@@ -1,0 +1,7 @@
+JeecgBoot/
+trip_order_api_summary.md
+site/
+__pycache__/
+*.pyc
+.DS_Store
+.opencode/
