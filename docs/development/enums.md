@@ -146,6 +146,25 @@
 | CARD_EXPIRED | 0 | 已过期 |
 | CARD_REPORTED_LOSS | 2 | 已挂失 |
 
+### 租赁状态 (RentalStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| RENTING | 1 | 租借中 |
+| RETURNED | 2 | 已归还 |
+| OVERDUE | 3 | 逾期 |
+| DAMAGED | 4 | 设备损坏 |
+| SETTLED | 5 | 已结算 |
+
+### 租赁设备状态 (RentalDeviceStatus)
+
+| 枚举值 | 数值 | 说明 |
+|--------|------|------|
+| IDLE | 0 | 空闲 |
+| IN_USE | 1 | 租借中 |
+| MAINTENANCE | 2 | 维修 |
+| SCRAPPED | 3 | 报废 |
+
 ---
 
 ## 3. 系统常量

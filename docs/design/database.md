@@ -42,6 +42,7 @@
 | device_db | admin-service | device_printer, device_scanner, device_passport_reader, device_counter, device_cashier |
 | analytics_db | analytics-service | alert_*, report_*（分析类，与交易DB物理分离） |
 | rule_db | rule-service | rule_* |
+| rental_db | rental-service | rental_* |
 | notification_db | notification-service | 消息模板/发送日志复用 JEECG 的 sys_sms/sys_sms_template，通知服务通过 API 调用 jeecg-boot 库 |
 
 > 所有业务表遵循统一约定：InnoDB、utf8mb4_unicode_ci、snake_case、雪花 ID、审计字段、逻辑删除、无外键、无多租户。
@@ -530,6 +531,7 @@
 | need_real_name | tinyint(1) | 是否需要实名：0否/1是 |
 | max_buy_per_order | int(11) | 每单限购 |
 | valid_days | int(11) | 有效期（天） |
+| billing_type | varchar(20) | 计费方式：one_time(一次性，如门票)/hourly(按小时，如讲解器)/daily(按天，如婴儿车) |
 | age_limit_min | int(11) | 年龄下限（硬限制——SKU 级别快速校验，如老人票 age≥60） |
 | age_limit_max | int(11) | 年龄上限（硬限制——SKU 级别快速校验） |
 | status | tinyint(1) | 0下架/1上架 |
@@ -689,6 +691,7 @@
 | total_amount | decimal(10,2) | 订单总金额 |
 | discount_amount | decimal(10,2) | 优惠金额 |
 | paid_amount | decimal(10,2) | 实付金额 |
+| deposit_amount | decimal(10,2) | 押金金额（order_type=rental 时使用，退还时走 order_refund） |
 | status | tinyint(1) | 1待支付/2已支付/3已核销/4已退款/5已取消/6部分退款/7已关闭 |
 | expire_time | datetime | 支付超时时间（创建时间+30分钟），定时任务扫描超时自动取消释放库存 |
 | contact_name | varchar(100) | 联系人 |
@@ -741,7 +744,7 @@
 | sub_order_id | varchar(32) | 子订单 ID |
 | refund_amount | decimal(10,2) | 退款金额 |
 | refund_reason | varchar(500) | 退款原因 |
-| refund_type | varchar(20) | partial/full/force |
+| refund_type | varchar(20) | partial/full/force/deposit_return（押金退还） |
 | refund_method | varchar(20) | original_path/manual |
 | status | tinyint(1) | 1待审核/2审核通过/3退款中/4已退款/5已拒绝 |
 | approve_by | varchar(50) | 审核人 |
@@ -1358,6 +1361,70 @@
 **索引：** uk_outbound_no, idx_goods_id, idx_outbound_time
 
 #### inv_check（盘点单）、inv_check_item（盘点明细）、inv_checkout（收银单）、inv_checkout_item（收银明细）— 结构从略
+
+---
+
+### 3.12a 租赁服务 — rental_db
+
+> 租赁业务独立于普通电商商品。核心区别：实物设备一进一出，需追踪每件物品的实时状态，而非库存数量模型。
+
+#### rental_device（租赁设备台账）
+
+> 每件实物设备一行，追踪唯一状态。贴二维码/条码标签。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| device_no | varchar(50) | 设备编号（贴码），唯一索引 |
+| sku_id | varchar(32) | 关联 product_sku.id（如"婴儿车-标准型"、"讲解器-多语言版"） |
+| area_id | varchar(32) | 所属景区 ID |
+| location | varchar(100) | 归还点/存放位置（如"南口租赁站"） |
+| status | tinyint(1) | 0空闲/1租借中/2维修/3报废 |
+| last_order_id | varchar(32) | 最后一笔租借订单 ID |
+| purchase_date | date | 购置日期 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_device_no, idx_sku_status（联合: sku_id + status）
+
+#### rental_order（租赁订单）
+
+> 独立于 order_main 的租赁专属订单。含押金、计时计费、逾期费。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| rental_no | varchar(50) | 租赁单号，唯一索引 |
+| order_id | varchar(32) | 关联 order_main.id（主支付单，含租金+押金） |
+| user_id | varchar(32) | 游客 ID，关联 tourist_user.id |
+| device_id | varchar(32) | 租赁设备 ID，关联 rental_device.id |
+| sku_id | varchar(32) | 设备类型 SKU ID |
+| rent_start_time | datetime | 开始租借时间（扫码取设备时） |
+| rent_end_time | datetime | 实际归还时间 |
+| expected_return_time | datetime | 预计归还时间（取设备时按计费规则计算） |
+| fee_type | varchar(20) | hourly（按小时）/ daily（按天）/ fixed（固定） |
+| unit_price | decimal(10,2) | 计费单价 |
+| rent_fee | decimal(10,2) | 租赁费（归还时结算） |
+| deposit_amount | decimal(10,2) | 押金金额（支付时一并收取） |
+| deposit_refund_amount | decimal(10,2) | 实际退还押金（设备损坏可扣减） |
+| overdue_fee | decimal(10,2) | 逾期费（超期累加） |
+| status | tinyint(1) | 1租借中/2已归还/3逾期/4设备损坏/5已结算 |
+| return_location | varchar(100) | 归还点 |
+| damage_remark | varchar(500) | 损坏说明 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_rental_no, idx_user_id, idx_device_id, idx_status, idx_rent_start_time
+
+> **流程：** 游客在线预约/现场扫码 → 创建 order_main(order_type=rental, deposit_amount) → 支付租金+押金 → 创建 rental_order(status=1) → 更新 rental_device(status=1租借中) → 归还时扫码 → 结算 rent_fee + overdue_fee → 原路退还 deposit_refund_amount → rental_device(status=0空闲)
+> 
+> **押金退还逻辑：** 无损归还 → deposit_refund_amount = deposit_amount。设备损坏 → deposit_refund_amount = deposit_amount - 扣款（人工核定）。退款类型标记 `refund_type=deposit_return`。
 
 ---
 
