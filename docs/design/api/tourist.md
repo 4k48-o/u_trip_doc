@@ -295,7 +295,7 @@
 
 ## 4. 下单与支付
 
-### 2.1 订单预览（价格试算 + 规则校验）
+### 4.1 订单预览（价格试算 + 规则校验）
 
 **POST** `/api/v1/tourist/orders/preview`
 
@@ -399,7 +399,7 @@
 
 ---
 
-### 2.2 创建订单
+### 4.2 创建订单
 
 **POST** `/api/v1/tourist/orders`
 
@@ -419,7 +419,8 @@ X-Idempotent-Key: uuid-v4
 | contactName | string | 是 | 联系人姓名 |
 | contactPhone | string | 是 | 联系人手机（AES 加密） |
 | couponId | string | 否 | 优惠券 ID |
-| insuranceFlag | int | 否 | 是否购买保险：0否 / 1是 |
+| insuranceFlag | bool | 否 | 是否购买保险 |
+| insuranceProductId | string | 否 | 保险产品 SKU ID（insuranceFlag=true 时必填） |
 
 **响应示例：**
 ```json
@@ -459,7 +460,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 2.3 发起支付
+### 4.3 发起支付
 
 **POST** `/api/v1/tourist/orders/{orderId}/pay`
 
@@ -503,7 +504,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 2.4 支付状态查询
+### 4.4 支付状态查询
 
 **GET** `/api/v1/tourist/orders/{orderId}/pay-status`
 
@@ -531,7 +532,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 2.5 改签
+### 4.5 改签
 
 **PUT** `/api/v1/tourist/orders/{orderId}/reschedule`
 
@@ -560,7 +561,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 2.6 取消订单
+### 4.6 取消订单
 
 **POST** `/api/v1/tourist/orders/{orderId}/cancel`
 
@@ -573,7 +574,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 2.7 申请退款
+### 4.7 申请退款
 
 **POST** `/api/v1/tourist/orders/{orderId}/refund`
 
@@ -620,7 +621,7 @@ X-Idempotent-Key: uuid-v4
 
 ## 5. 订单管理
 
-### 3.1 我的订单列表
+### 5.1 我的订单列表
 
 **GET** `/api/v1/tourist/orders`
 
@@ -630,7 +631,7 @@ X-Idempotent-Key: uuid-v4
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| status | int | 否 | 1待支付 / 2已支付 / 3已核销 / 4已退款 / 5已取消 / 6部分退款 |
+| status | int | 否 | 1待支付 / 2已支付 / 3已核销 / 4已退款 / 5已取消 / 6部分退款 / 7已关闭 |
 | startDate | string | 否 | 下单开始日期 |
 | endDate | string | 否 | 下单结束日期 |
 | keyword | string | 否 | 订单号/商品名关键字 |
@@ -653,7 +654,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 3.2 订单详情
+### 5.2 订单详情
 
 **GET** `/api/v1/tourist/orders/{orderId}`
 
@@ -707,7 +708,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 3.3 获取电子票凭证
+### 5.3 获取电子票凭证
 
 **GET** `/api/v1/tourist/orders/{orderId}/voucher`
 
@@ -738,7 +739,7 @@ X-Idempotent-Key: uuid-v4
 
 ## 6. 年卡
 
-### 4.1 可购买年卡列表
+### 6.1 可购买年卡列表
 
 **GET** `/api/v1/tourist/annual-cards`
 
@@ -756,7 +757,7 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
-### 4.2 购买年卡
+### 6.2 购买年卡
 
 **POST** `/api/v1/tourist/annual-cards/purchase`
 
@@ -768,7 +769,7 @@ X-Idempotent-Key: uuid-v4
 | quantity | int | 是 | 购买数量（可为家人购买） |
 | visitors | array | 是 | 持卡人信息（姓名+证件号+AES加密+人脸采集） |
 
-### 4.3 我的年卡
+### 6.3 我的年卡
 
 **GET** `/api/v1/tourist/annual-cards/my`
 
@@ -792,7 +793,7 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
-### 4.4 年卡人脸采集
+### 6.4 年卡人脸采集
 
 **POST** `/api/v1/tourist/annual-cards/{cardNo}/face-collect`
 
@@ -816,11 +817,39 @@ X-Idempotent-Key: uuid-v4
 
 > 质量分 < 0.8 时返回 "照片质量不合格，请重新拍摄"，并提示具体要求。
 
+### 6.5 年卡挂失
+
+**POST** `/api/v1/tourist/annual-cards/{cardNo}/report-loss`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| reason | string | 是 | 挂失原因 |
+
+**响应：** `{ "code": 0, "data": { "cardNo": "AC20260501001", "status": 2, "statusText": "已挂失" } }`
+
+### 6.6 年卡补办
+
+**POST** `/api/v1/tourist/annual-cards/{cardNo}/reissue`
+
+> 已挂失年卡可申请补办。原卡作废，生成新卡（新 cardNo），关联同用户+同证件。
+
+**Auth:** Bearer Token。
+
+**响应：**
+```json
+{
+  "code": 0,
+  "data": { "newCardNo": "AC20260601002", "oldCardNo": "AC20260501001", "effectiveDate": "2026-05-26", "expireDate": "2027-05-25" }
+}
+```
+
 ---
 
 ## 7. 会员与营销
 
-### 5.1 我的会员信息
+### 7.1 我的会员信息
 
 **GET** `/api/v1/tourist/member/info`
 
@@ -847,7 +876,7 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
-### 5.2 积分明细
+### 7.2 积分明细
 
 **GET** `/api/v1/tourist/member/points-log`
 
@@ -869,7 +898,7 @@ X-Idempotent-Key: uuid-v4
 | description | 业务描述 |
 | createTime | 时间 |
 
-### 5.3 积分兑换
+### 7.3 积分兑换
 
 **POST** `/api/v1/tourist/member/points-exchange`
 
@@ -878,7 +907,7 @@ X-Idempotent-Key: uuid-v4
 | benefitId | string | 是 | 权益 ID |
 | quantity | int | 是 | 兑换数量 |
 
-### 5.4 优惠券列表
+### 7.4 优惠券列表
 
 **GET** `/api/v1/tourist/coupons`
 
@@ -889,7 +918,7 @@ X-Idempotent-Key: uuid-v4
 | status | int | 否 | 0未使用 / 1已使用 / 2已过期 |
 | usableFor | string | 否 | 传入 SPU ID，筛选该商品可用的券 |
 
-### 5.5 领取优惠券
+### 7.5 领取优惠券
 
 **POST** `/api/v1/tourist/coupons/receive`
 
@@ -901,7 +930,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-### 5.6 秒杀活动
+### 7.6 秒杀活动
 
 **GET** `/api/v1/tourist/seckill`
 
@@ -931,7 +960,7 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
-### 5.7 拼团活动
+### 7.7 拼团活动
 
 **GET** `/api/v1/tourist/group-buy`
 
@@ -946,13 +975,13 @@ X-Idempotent-Key: uuid-v4
 
 ## 8. 发票
 
-### 6.1 可开票订单
+### 8.1 可开票订单
 
 **GET** `/api/v1/tourist/invoices/orders`
 
 **Auth:** Bearer Token。返回已支付/已核销且未开票的订单。
 
-### 6.2 申请开票
+### 8.2 申请开票
 
 **POST** `/api/v1/tourist/invoices/apply`
 
@@ -974,7 +1003,7 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
-### 6.3 我的发票列表
+### 8.3 我的发票列表
 
 **GET** `/api/v1/tourist/invoices`
 
@@ -986,19 +1015,19 @@ X-Idempotent-Key: uuid-v4
 
 ## 9. 内容与互动
 
-### 9.1 游记/攻略列表
+### 9.1 资讯/公告列表
 
-**GET** `/api/v1/tourist/notes`
-
-> **游客端仅展示审核通过的笔记（auditStatus=1）。**
+**GET** `/api/v1/tourist/articles`
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
 | category | string | 否 | news / notice / culture / activity |
 
-### 7.2 游记/攻略列表
+### 9.2 游记/攻略列表
 
 **GET** `/api/v1/tourist/notes`
+
+> **游客端仅展示审核通过的笔记（auditStatus=1）。**
 
 | 参数 | 类型 | 必填 | 说明 |
 |------|------|------|------|
@@ -1007,11 +1036,11 @@ X-Idempotent-Key: uuid-v4
 
 **响应records字段：** noteId, title, summary(前200字), images[0], authorName, authorAvatar, likeCount, collectCount, tags, publishTime。
 
-### 7.3 笔记详情
+### 9.3 笔记详情
 
 **GET** `/api/v1/tourist/notes/{noteId}` — 含完整内容 + 图片 + 互动数据 + 是否已点赞/收藏。
 
-### 7.4 发布笔记
+### 9.4 发布笔记
 
 **POST** `/api/v1/tourist/notes`
 
@@ -1026,7 +1055,7 @@ X-Idempotent-Key: uuid-v4
 
 **响应：** `{ "code": 0, "data": { "noteId": "N001", "auditStatus": 0, "auditStatusText": "待审核" } }`
 
-### 7.5 互动操作
+### 9.5 互动操作
 
 **POST** `/api/v1/tourist/interactions`
 
@@ -1180,9 +1209,90 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 10. 用户信息管理
+## 10. 租赁服务
 
-### 10.1 个人信息
+> 游客端租赁接口。租赁业务数据库模型见 [database.md](../database.md)。
+
+### 10.1 可租设备查询
+
+**GET** `/api/v1/tourist/rental/devices`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| category | string | 否 | 设备类型 SKU 的 category_code（如 RENTAL） |
+| areaId | string | 否 | 景区 ID |
+| keyword | string | 否 | 设备名称搜索 |
+| pageNo | int | 否 | 默认 1 |
+
+**响应records字段：** deviceNo(设备编号), skuName, billingType, unitPrice, depositAmount, location, status(空闲/租借中)。
+
+### 10.2 创建租赁预约
+
+**POST** `/api/v1/tourist/rental/orders`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| deviceNo | string | 是 | 设备编号 |
+| expectedReturnTime | string | 是 | 预计归还时间 |
+| payMethod | string | 是 | wechat / alipay / unionpay |
+
+**响应：** `{ "code": 0, "data": { "rentalNo": "RTL20260601001", "orderId": "ORD...", "rentFee": "20.00", "depositAmount": "200.00", "paidAmount": "220.00" } }`
+
+### 10.3 扫码取设备
+
+**POST** `/api/v1/tourist/rental/orders/{rentalNo}/pickup`
+
+> 到设备存放点扫码设备二维码（device_no）。`rental_order.status = 1`，`rental_device.status = 1`。
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| deviceNo | string | 是 | 扫码获取的设备编号 |
+
+### 10.4 扫码归还设备
+
+**POST** `/api/v1/tourist/rental/orders/{rentalNo}/return`
+
+> 扫码归还设备。服务端结算实际费用+逾期费，原路退还押金。
+
+**Auth:** Bearer Token。
+
+**响应：**
+```json
+{
+  "code": 0,
+  "data": {
+    "rentalNo": "RTL20260601001",
+    "rentFee": "20.00",
+    "overdueFee": "0.00",
+    "depositRefundAmount": "200.00",
+    "status": 5,
+    "statusText": "已结算"
+  }
+}
+```
+
+### 10.5 我的租赁订单
+
+**GET** `/api/v1/tourist/rental/orders`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| status | int | 否 | 1租借中 / 2已归还 / 3逾期 / 4设备损坏 / 5已结算 |
+| pageNo | int | 否 | — |
+
+**响应records字段：** rentalNo, deviceName, rentStartTime, rentEndTime, rentFee, depositRefundAmount, status, statusText。
+
+---
+
+## 11. 用户信息管理
+
+### 11.1 个人信息
 
 **GET** `/api/v1/tourist/user/profile`
 
@@ -1190,7 +1300,7 @@ X-Idempotent-Key: uuid-v4
 
 **PUT** `/api/v1/tourist/user/profile` — 修改个人信息（手机号需验证码）。
 
-### 10.2 出行人管理
+### 11.2 出行人管理
 
 **GET** `/api/v1/tourist/user/travelers`
 
@@ -1202,7 +1312,7 @@ X-Idempotent-Key: uuid-v4
 
 **DELETE** `/api/v1/tourist/user/travelers/{id}` — 删除
 
-### 10.3 NFC 证件识别
+### 11.3 NFC 证件识别
 
 **POST** `/api/v1/tourist/user/ocr-id`
 

@@ -20,7 +20,7 @@
 | password | string | 是 | 明文密码（HTTPS 传输） |
 | captchaKey | string | 否 | 图形验证码 key（连续失败 3 次后必填） |
 | captchaCode | string | 否 | 图形验证码值 |
-| loginType | string | 是 | 登录类型：user（游客端）/ admin（管理端）/ merchant（商户端）/ agent（旅行社端） |
+| loginType | string | 是 | tourist（游客端）/ admin（管理端）/ merchant（商户端）/ agent（旅行社端） |
 
 **请求示例：**
 ```json
@@ -228,11 +228,51 @@
 
 ---
 
+### 1.9 微信 OAuth 登录
+
+**POST** `/api/v1/auth/oauth/wechat`
+
+> 微信小程序 `wx.login()` 获取 code → 换 Token。首次登录自动注册 tourist_user。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| code | string | 是 | `wx.login()` 返回的临时凭证 |
+| encryptedData | string | 否 | 加密用户信息（获取手机号时使用） |
+| iv | string | 否 | 加密向量 |
+
+**响应示例：**
+```json
+{
+  "code": 0,
+  "data": {
+    "accessToken": "eyJhbGciOi...",
+    "refreshToken": "eyJhbGciOi...",
+    "expiresIn": 7200,
+    "isNewUser": true,
+    "userInfo": { "userId": "T001", "nickname": "微信用户", "avatar": "https://..." }
+  }
+}
+```
+
+### 1.10 支付宝 OAuth 登录
+
+**POST** `/api/v1/auth/oauth/alipay`
+
+> 支付宝授权码换 Token。首次登录自动注册 tourist_user。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| authCode | string | 是 | 支付宝授权码 |
+
+**响应格式同微信 OAuth。**
+
+---
+
 ## 2. 公共服务
 
 ### 2.1 健康检查
 
-**GET** `/api/v1/health`
+**GET** `/api/v1/common/health`
 
 > 无需鉴权。用于负载均衡器存活探测。
 
@@ -243,7 +283,7 @@
 
 ### 2.2 就绪检查
 
-**GET** `/api/v1/health/ready`
+**GET** `/api/v1/common/health/ready`
 
 > 无需鉴权。检查数据库、Redis 连接状态。
 
@@ -414,7 +454,7 @@
 |------|------|------|------|
 | pageNo | int | 否 | 默认 1 |
 | pageSize | int | 否 | 默认 10 |
-| readFlag | int | 否 | 0=未读，1=已读 |
+| readFlag | bool | 否 | 未读（false）/ 已读（true） |
 
 **响应示例：**
 ```json
