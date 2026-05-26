@@ -592,6 +592,7 @@
 | custom_code | varchar(20) | 携程自定义人群 code（ticketTypeCode=Customized 时使用） |
 | passenger_type | varchar(20) | 人群属性：Adult/Child/Senior/Youth/Infant/Student/Traveler/Customized（区别于 price_type 价格属性） |
 | billing_type | varchar(20) | 计费方式：one_time(一次性，如门票)/hourly(按小时，如讲解器)/daily(按天，如婴儿车) |
+| valid_days | int(11) | 有效期（天） |
 | age_limit_min | int(11) | 年龄下限（硬限制——SKU 级别快速校验，如老人票 age≥60） |
 | age_limit_max | int(11) | 年龄上限（硬限制——SKU 级别快速校验） |
 | status | tinyint(1) | 0下架/1上架 |
@@ -2008,6 +2009,7 @@
 | hours_before | int(11) | 游览前 N 小时内 |
 | refund_rate | decimal(5,4) | 退款比例（1.0000=全额） |
 | allow_partial | tinyint(1) | 0否/1是 |
+| confirmation_time | int(11) | 携程退改确认时限（8/16/24 小时） |
 | cancel_fee_json | text | 携程格式退改费率列表（JSON） |
 | status | tinyint(1) | 0禁用/1启用 |
 | create_by | varchar(50) | 创建人 |
@@ -2457,7 +2459,118 @@ option_status    varchar(10)    active/inactive（携程 optionStatus）
 option_desc      varchar(200)   套餐描述（携程 optionDescription）
 option_booking_cutoff_time  varchar(50)   套餐级提前预订时间（JSON）
 primary_language varchar(10)   value_name 对应的语言代码
-``` PARTITION BY RANGE (TO_DAYS(heartbeat_time))
+```
+
+#### product_itinerary_food（行程餐饮）— product_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| day_id | varchar(32) | 关联行程日 ID |
+| time | varchar(5) | HH:mm |
+| meal_type | varchar(20) | Breakfast/Lunch/Dinner |
+| fee_inclusions | varchar(20) | Include/Exclude |
+| poi_id | varchar(32) | 就餐地点 POI ID |
+| description | varchar(1000) | 描述 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_day_id
+
+#### product_itinerary_accommodation（行程住宿）— product_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| day_id | varchar(32) | 关联行程日 ID |
+| poi_id | varchar(32) | 住宿地点 POI ID |
+| description | varchar(1000) | 描述 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_day_id
+
+#### product_itinerary_start（行程集合点）— product_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| itinerary_id | varchar(32) | 关联行程 ID |
+| start_time | varchar(5) | HH:mm |
+| start_type | varchar(30) | Meet_at_Start_Point/Pickup_Everyone |
+| poi_id | varchar(32) | 集合地点 POI ID |
+| duration_value | int(11) | 接人耗时 |
+| duration_unit | varchar(10) | Day/Hour/Minute |
+| description | varchar(1000) | 描述 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_itinerary_id
+
+#### product_itinerary_end（行程解散点）— product_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| itinerary_id | varchar(32) | 关联行程 ID |
+| end_time | varchar(5) | HH:mm |
+| end_type | varchar(30) | End_on_the_Spot/End_After_Return/Drop_Off_Everyone |
+| poi_id | varchar(32) | 解散地点 POI ID |
+| duration_value | int(11) | 解散耗时 |
+| duration_unit | varchar(10) | Day/Hour/Minute |
+| description | varchar(1000) | 描述 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_itinerary_id
+
+#### product_inclusion（费用包含项）— product_db
+
+> 从 product_spu.inclusions text 拆出，每条 ≤500 字符，最多 20 条。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| content | varchar(500) | 内容 |
+| sort_no | int(11) | 排序 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_spu_id
+
+#### product_exclusion（费用不含项）— product_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| content | varchar(500) | 内容 |
+| sort_no | int(11) | 排序 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_spu_id
+
+#### product_highlight_item（产品亮点）— product_db
+
+> ≤200 字符 × 3 条。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| content | varchar(200) | 内容 |
+| sort_no | int(11) | 排序 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_spu_id
+
+#### product_how_to_use_item（使用方法）— product_db
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| content | varchar(500) | 内容 |
+| sort_no | int(11) | 排序 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_spu_id
 
 ## 4. 表统计
 
@@ -2466,4 +2579,4 @@ primary_language varchar(10)   value_name 对应的语言代码
 | JEECG Boot 系统表（保留） | 61 | 用户/角色/权限/组织/字典/日志/消息/文件/任务/网关/多数据源 |
 | JEECG Boot 可选表（按需） | 62 | Online 低代码/JimuReport/AI 模块 |
 | Nacos + XXL-JOB（独立库） | 11 | 微服务基础设施 |
-| **绥中业务表** | **~105** | 按 20 个独立服务库分布（ticket/product/order/settlement/invoice/face/merchant/marketing/member/inventory/rental/traffic/integration/scenic/vehicle/content/device/analytics/rule/notification） |
+| **绥中业务表** | **~115** | 按 20 个独立服务库分布 |
