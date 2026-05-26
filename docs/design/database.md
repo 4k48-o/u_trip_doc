@@ -470,6 +470,26 @@
 
 **索引：** uk_batch_no, idx_agency_id, idx_order_id
 
+#### travel_agency_operator（旅行社操作人员）— integration_db
+
+> 每旅行社可有多名操作人员，按角色分权。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| agency_id | varchar(32) | 旅行社 ID |
+| user_id | varchar(32) | 关联 sys_user.id（操作员登录账号） |
+| role | varchar(20) | order(下单)/verify(核销)/finance(财务)/admin(管理员) |
+| mobile | varchar(50) | 手机号 |
+| status | tinyint(1) | 0禁用/1启用 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_agency_id, idx_user_id, uk_agency_user（联合唯一）
+
 ---
 
 ### 3.3b 设备管理 — ticket_db + device_db
