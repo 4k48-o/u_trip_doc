@@ -19,7 +19,32 @@ nav:
       - 总览: design/api-design.md
       - 接口规范: design/api/conventions.md
       - 游客端 API: design/api/tourist.md
-      - 管理端 API: design/api/admin.md
+      - 管理端 API:
+        - 总览(权限+索引): design/api/admin.md
+        - 景区管理: design/api/admin/scenic.md
+        - 商品管理: design/api/admin/product.md
+        - 票务管理: design/api/admin/ticket.md
+        - 订单管理: design/api/admin/order.md
+        - 清分结算: design/api/admin/settlement.md
+        - 发票管理: design/api/admin/invoice.md
+        - 商户管理: design/api/admin/merchant.md
+        - 营销管理: design/api/admin/marketing.md
+        - 会员管理: design/api/admin/member.md
+        - 进销存管理: design/api/admin/inventory.md
+        - 规则管理: design/api/admin/rule.md
+        - 预警监控: design/api/admin/alert.md
+        - 设备管理: design/api/admin/device.md
+        - 旅行社管理: design/api/admin/travel-agency.md
+        - 报表: design/api/admin/report.md
+        - 年卡管理: design/api/admin/annual-card.md
+        - 租赁管理: design/api/admin/rental.md
+        - AI 知识库: design/api/admin/ai-knowledge.md
+        - 分销提现: design/api/admin/distribution-withdraw.md
+        - 电子围栏: design/api/admin/geofence.md
+        - 消息模板: design/api/admin/notification.md
+        - 客服会话: design/api/admin/customer-service.md
+        - 内容管理: design/api/admin/content.md
+        - OTA 管理: design/api/admin/ota-admin.md
       - 商户端 API: design/api/merchant.md
       - 旅行社端 API: design/api/agent.md
       - OTA 开放 API: design/api/ota.md
