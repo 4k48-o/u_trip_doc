@@ -128,7 +128,7 @@
     "spuId": "SPU001",
     "spuCode": "TICKET_ADULT",
     "spuName": "绥中长城成人票",
-    "spuNameEn": "Mutianyu Great Wall Adult Ticket",
+    "spuNameEn": "Suizhong Great Wall Adult Ticket",
     "categoryCode": "TICKET",
     "scenicSpotId": "SPOT_001",
     "mainImage": "https://cdn.example.com/images/p001.jpg",
@@ -1084,7 +1084,7 @@ X-Idempotent-Key: uuid-v4
 {
   "code": 0,
   "data": {
-    "mapImageUrl": "https://cdn.example.com/maps/mutianyu-hand-drawn.jpg",
+    "mapImageUrl": "https://cdn.example.com/maps/suizhong-hand-drawn.jpg",
     "markers": [
       { "id": "M001", "markerType": "scenic", "markerName": "正关台", "longitude": 116.56, "latitude": 40.43, "iconUrl": "...", "description": "绥中关，明代建筑" },
       { "id": "M010", "markerType": "toilet", "markerName": "卫生间", "longitude": 116.55, "latitude": 40.42, "iconUrl": "..." },

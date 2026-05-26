@@ -86,8 +86,8 @@
     "supplierPOI": {
       "supplierId": "SPOT_001",
       "mappingElements": {
-        "name": "Mutianyu Great Wall",
-        "addressDetail": "Mutianyu Village, Huairou District, Beijing",
+        "name": "Suizhong Great Wall",
+        "addressDetail": "Suizhong Village, Huairou District, Beijing",
         "latitude": 40.4319,
         "longitude": 116.5617
       }
@@ -96,7 +96,7 @@
   "ticketInfo": { "deliveryMethods": "DIGITAL" },
   "redemptionInfo": { "redemptionType": "Direct_Entry" },
   "gallery": [{ "tripImageId": "10001" }],
-  "description": "Mutianyu Great Wall is located in Huairou District...",
+  "description": "Suizhong Great Wall is located in Huairou District...",
   "cancellationPolicy": {
     "type": "By_Visit_Date",
     "rateList": [
