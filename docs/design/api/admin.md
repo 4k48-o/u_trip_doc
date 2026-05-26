@@ -121,7 +121,7 @@
   }, {
     "skuCode": "TICKET_ADULT_DISCOUNT",
     "skuName": "老人优惠票",
-    "specDesc": "{\"ageRange\":\"60岁以上\"}",
+    "specDesc": "{\"ageMin\": 60, \"ageMax\": null}",
     "priceType": "DISCOUNT",
     "originalPrice": "25.00",
     "sellPrice": "20.00",
@@ -862,12 +862,12 @@
 | 设备 | 路由 |
 |------|------|
 | 闸机 | `/api/v1/admin/devices/gates` |
-| 手持机 | `/admin/devices/handhelds` |
-| 打印机 | `/admin/devices/printers` |
-| 扫描枪 | `/admin/devices/scanners` |
-| 护照阅读器 | `/admin/devices/passport-readers` |
-| 客流计数器 | `/admin/devices/counters` |
-| 收银机 | `/admin/devices/cashiers` |
+| 手持机 | `/api/v1/admin/devices/handhelds` |
+| 打印机 | `/api/v1/admin/devices/printers` |
+| 扫描枪 | `/api/v1/admin/devices/scanners` |
+| 护照阅读器 | `/api/v1/admin/devices/passport-readers` |
+| 客流计数器 | `/api/v1/admin/devices/counters` |
+| 收银机 | `/api/v1/admin/devices/cashiers` |
 
 **闸机 POST 请求示例：**
 ```json
@@ -1137,7 +1137,7 @@
 | contractId | 是 | OTA 合同 ID |
 | dateType | 是 | DATE_REQUIRED / DATE_NOT_REQUIRED |
 | syncPrice | 是 | 是否同步价格（布尔） |
-| syncInventory | 是 | 0/1 |
+| syncInventory | 是 | 是否同步库存（布尔） |
 | pushEnabled | 是 | 是否启用推送（布尔） |
 
 ### 17.2 OTA POI 映射
