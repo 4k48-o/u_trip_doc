@@ -119,7 +119,14 @@
     "sellPrice": "40.00",
     "costPrice": "0.00",
     "needRealName": true,
+    "minBuy": 1,
     "maxBuyPerOrder": 5,
+    "unitPax": 1,
+    "companionRequired": false,
+    "passengerType": "Adult",
+    "netPriceCurrency": "CNY",
+    "retailPriceCurrency": "CNY",
+    "validDays": 1,
     "ageLimitMin": 19,
     "ageLimitMax": 59
   }, {
@@ -131,12 +138,21 @@
     "sellPrice": "20.00",
     "costPrice": "0.00",
     "needRealName": true,
+    "minBuy": 1,
     "maxBuyPerOrder": 5,
+    "unitPax": 1,
+    "companionRequired": false,
+    "passengerType": "Senior",
+    "netPriceCurrency": "CNY",
+    "retailPriceCurrency": "CNY",
+    "validDays": 1,
     "ageLimitMin": 60,
     "ageLimitMax": null
   }]
 }
 ```
+
+> **SPU 级新增字段：** 除示例中字段外，创建/编辑 SPU 时可传 `categoryCodes`（JSON数组）、`primaryLanguage`、`reference`、`metaData`、`serviceLanguages`（JSON数组）、`guestInfoType`（PER_PERSON/PER_ORDER）、`guestInfoCodes`（JSON数组）、`paymentConfirmationTime`（分钟）。
 
 ### 2.3 编辑商品
 
@@ -225,6 +241,10 @@
 |------|------|------|
 | optionCode | string | 选项编码 |
 | optionType | string | option / time_slot |
+| optionStatus | string | active / inactive（携程 optionStatus） |
+| optionDesc | string | 套餐描述（≤200字符） |
+| optionBookingCutoffTime | string | 套餐级提前预订时间（JSON） |
+| primaryLanguage | string | value_name 对应的语言代码 |
 | values | array | 选项值列表 |
 | values[].valueCode | string | 值编码 |
 | values[].valueName | string | 值名称 |

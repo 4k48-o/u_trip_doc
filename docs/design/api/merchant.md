@@ -106,7 +106,7 @@
 | durationValue | int | 否 | 时长 |
 | durationUnit | string | 否 | Day / Hour / Minute |
 | status | int | 是 | 0=保存草稿不提交审核，1=提交审核 |
-| skus | array | 是 | SKU 列表（格式同管理端） |
+| skus | array | 是 | SKU 列表（格式同管理端，含 passengerType/netPriceCurrency/retailPriceCurrency/minBuy/unitPax/companionRequired 等新字段） |
 
 **响应示例：**
 ```json
