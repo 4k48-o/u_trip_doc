@@ -1013,64 +1013,6 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 9. 内容与互动
-
-### 9.1 资讯/公告列表
-
-**GET** `/api/v1/tourist/articles`
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| category | string | 否 | news / notice / culture / activity |
-
-### 9.2 游记/攻略列表
-
-**GET** `/api/v1/tourist/notes`
-
-> **游客端仅展示审核通过的笔记（auditStatus=1）。**
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| sortBy | string | 否 | hot（按热度）/ new（最新）/ default |
-| tags | string | 否 | 标签筛选 |
-
-**响应records字段：** noteId, title, summary(前200字), images[0], authorName, authorAvatar, likeCount, collectCount, tags, publishTime。
-
-### 9.3 笔记详情
-
-**GET** `/api/v1/tourist/notes/{noteId}` — 含完整内容 + 图片 + 互动数据 + 是否已点赞/收藏。
-
-### 9.4 发布笔记
-
-**POST** `/api/v1/tourist/notes`
-
-**Auth:** Bearer Token。
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| title | string | 是 | 标题 |
-| content | string | 是 | 正文（支持富文本） |
-| images | array | 是 | 图片 URL 列表 |
-| tags | array | 否 | 标签 |
-
-**响应：** `{ "code": 0, "data": { "noteId": "N001", "auditStatus": 0, "auditStatusText": "待审核" } }`
-
-### 9.5 互动操作
-
-**POST** `/api/v1/tourist/interactions`
-
-**Auth:** Bearer Token。
-
-| 参数 | 类型 | 必填 | 说明 |
-|------|------|------|------|
-| targetType | string | 是 | note / article / audio_guide |
-| targetId | string | 是 | 目标 ID |
-| interactionType | string | 是 | like / collect / share |
-
-> 同一用户对同一目标重复点击视为取消。
-
----
-
 ## 8. 导览服务
 
 ### 8.1 手绘地图数据
@@ -1154,9 +1096,67 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
+## 9. 内容与互动
+
+### 9.1 资讯/公告列表
+
+**GET** `/api/v1/tourist/articles`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| category | string | 否 | news / notice / culture / activity |
+
+### 9.2 游记/攻略列表
+
+**GET** `/api/v1/tourist/notes`
+
+> **游客端仅展示审核通过的笔记（auditStatus=1）。**
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| sortBy | string | 否 | hot（按热度）/ new（最新）/ default |
+| tags | string | 否 | 标签筛选 |
+
+**响应records字段：** noteId, title, summary(前200字), images[0], authorName, authorAvatar, likeCount, collectCount, tags, publishTime。
+
+### 9.3 笔记详情
+
+**GET** `/api/v1/tourist/notes/{noteId}` — 含完整内容 + 图片 + 互动数据 + 是否已点赞/收藏。
+
+### 9.4 发布笔记
+
+**POST** `/api/v1/tourist/notes`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| title | string | 是 | 标题 |
+| content | string | 是 | 正文（支持富文本） |
+| images | array | 是 | 图片 URL 列表 |
+| tags | array | 否 | 标签 |
+
+**响应：** `{ "code": 0, "data": { "noteId": "N001", "auditStatus": 0, "auditStatusText": "待审核" } }`
+
+### 9.5 互动操作
+
+**POST** `/api/v1/tourist/interactions`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| targetType | string | 是 | note / article / audio_guide |
+| targetId | string | 是 | 目标 ID |
+| interactionType | string | 是 | like / collect / share |
+
+> 同一用户对同一目标重复点击视为取消。
+
+---
+
 ## 10. AI 问答
 
-### 9.1 AI 问答对话
+### 10.1 AI 问答对话
 
 **POST** `/api/v1/tourist/ai/chat`
 
