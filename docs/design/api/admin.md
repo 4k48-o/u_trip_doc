@@ -109,7 +109,7 @@
   "skus": [{
     "skuCode": "TICKET_ADULT_FULL",
     "skuName": "成人全价票",
-    "specDesc": "{\"ageRange\":\"19-59岁\"}",
+    "specDesc": "{\"ageMin\": 19, \"ageMax\": 59}",
     "priceType": "FULL",
     "originalPrice": "45.00",
     "sellPrice": "40.00",
@@ -155,7 +155,7 @@
 | items[].quantity | int | 是 | 数量 |
 | items[].sellPrice | string | 是 | 分项售价 |
 | items[].settlePrice | string | 是 | 分项结算价（清分基准） |
-| items[].required | int | 是 | 是否必选 |
+| items[].required | boolean | 是 | 是否必选 |
 
 ---
 
@@ -186,6 +186,8 @@
 
 ### 2.6 渠道定价
 
+**GET** `/api/v1/admin/products/{spuId}/channel-price?skuId=X` — 查询当前各渠道定价
+
 **POST** `/api/v1/admin/products/{spuId}/channel-price`
 
 | 字段 | 类型 | 必填 | 说明 |
@@ -201,7 +203,7 @@
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| languageCode | string | 是 | zh-CN / en / ja / ko / th / ... |
+| languageCode | string | 是 | zh-CN / en / ja / ko / ru / fr / es / ar |
 | title | string | 否 | 多语言名称 |
 | description | string | 否 | 多语言描述 |
 | notice | string | 否 | 多语言须知 |
@@ -574,6 +576,8 @@
 | auditResult | 是 | 1通过 / 2驳回 |
 | auditRemark | 否 | 审核备注 |
 
+**PUT** `/api/v1/admin/merchants/{merchantId}/status` — 启用/停用商户 `{ "status": 1 }`
+
 ### 7.2 商户商品审核
 
 **GET** `/api/v1/admin/merchants/products?auditStatus=0` — 待审核商品
@@ -659,7 +663,15 @@
 
 ## 9. 会员管理
 
-**GET** `/api/v1/admin/members` — 会员列表（可筛等级/标签）
+**GET** `/api/v1/admin/members`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| level | string | 否 | BRONZE/SILVER/GOLD/PLATINUM |
+| tag | string | 否 | 标签筛选（如"亲子游"） |
+| keyword | string | 否 | 会员编号/手机号 |
+| pageNo | int | 否 | 默认 1 |
+| pageSize | int | 否 | 默认 20 |
 
 **GET** `/api/v1/admin/members/{userId}` — 会员详情（含等级/积分/消费/标签/权益）
 
@@ -732,7 +744,7 @@
 
 ### 10.7 收银记录
 
-**GET** `/api/v1/admin/inventory/checkouts?storeId=X&cashierId=Y&startDate=Z&endDate=W`
+**GET** `/api/v1/admin/inventory/checkouts?storeId=X&cashierId=Y&sessionId=Z&startDate=A&endDate=B`
 
 ---
 
@@ -770,7 +782,7 @@
 | refundTimeScope | 是 | before_visit / after_visit / anytime |
 | hoursBefore | 否 | 游览前 N 小时内 |
 | refundRate | 是 | 退款比例（1.0000=全额） |
-| allowPartial | 是 | 0/1 |
+| allowPartial | 是 | 是否允许部分退（布尔） |
 | cancelFeeJson | 否 | 携程格式退改费率 `[{"dayBeforeVisitDate":1,"time":"00:00","unit":"PERCENTAGE","value":50}]` |
 
 ### 11.3 验票规则
@@ -822,7 +834,7 @@
 
 | 设备 | 路由 |
 |------|------|
-| 闸机 | `/admin/devices/gates` |
+| 闸机 | `/api/v1/admin/devices/gates` |
 | 手持机 | `/admin/devices/handhelds` |
 | 打印机 | `/admin/devices/printers` |
 | 扫描枪 | `/admin/devices/scanners` |
@@ -898,7 +910,7 @@
       "ticketSold": { "08-10": 1200, "10-12": 2400, "12-14": 1800 },
       "gateStats": [
         { "gateName": "南口", "verified": 4520, "waiting": 120 },
-        { "gateName": "北口", "verified": 4000, "waitting": 80 }
+        { "gateName": "北口", "verified": 4000, "waiting": 80 }
       ]
     },
     "ranking": {
@@ -980,7 +992,7 @@
 
 **POST** `/api/v1/admin/content/notes/{noteId}/audit` — 审核 { "auditResult": 1, "remark": "" }
 
-**PUT** `/api/v1/admin/content/notes/{noteId}/top` — 置顶/加精 { "isTop": 1, "isEssence": 1 }
+**PUT** `/api/v1/admin/content/notes/{noteId}/top` — 置顶/加精 { "isTop": true, "isEssence": true }
 
 **GET/POST/PUT** `/api/v1/admin/content/audio` — 语音讲解管理
 
@@ -1023,9 +1035,9 @@
 | otaProductId | 否 | OTA 产品 ID |
 | contractId | 是 | OTA 合同 ID |
 | dateType | 是 | DATE_REQUIRED / DATE_NOT_REQUIRED |
-| syncPrice | 是 | 0/1 |
+| syncPrice | 是 | 是否同步价格（布尔） |
 | syncInventory | 是 | 0/1 |
-| pushEnabled | 是 | 0/1 |
+| pushEnabled | 是 | 是否启用推送（布尔） |
 
 ### 17.2 OTA POI 映射
 
@@ -1051,4 +1063,4 @@
 
 **POST** `/api/v1/admin/ota/mappings/{mappingId}/resync` — 手动触发重新同步（产品/价格/库存）
 
-**PUT** `/api/v1/admin/ota/mappings/{mappingId}/toggle` — 启用/停用 OTA 通道 `{ "pushEnabled": 0 }`
+**PUT** `/api/v1/admin/ota/mappings/{mappingId}/toggle` — 启用/停用 OTA 通道 `{ "pushEnabled": false }`
