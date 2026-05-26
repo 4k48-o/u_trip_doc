@@ -1264,7 +1264,35 @@ X-Idempotent-Key: uuid-v4
 | AI_001 | AI 服务暂时不可用 |
 | AI_002 | 语音识别失败 |
 
-### 12.4 通知收件箱
+### 10.2 AI 对话历史
+
+**GET** `/api/v1/tourist/ai/sessions`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| pageNo | int | 否 | 默认 1 |
+
+**响应records字段：** sessionId, title(首条消息摘要), lastMessage, updateTime。
+
+**GET** `/api/v1/tourist/ai/sessions/{sessionId}/messages` — 指定会话的完整对话记录（分页）
+
+### 10.3 人工客服
+
+**POST** `/api/v1/tourist/customer-service/session`
+
+> 主动发起人工客服会话，无需先走 AI 问答。
+
+**Auth:** Bearer Token。
+
+**响应：** `{ "code": 0, "data": { "sessionId": "CS20260501001", "status": "queuing", "waitTime": 60 } }`
+
+**GET** `/api/v1/tourist/customer-service/queue` — 查询排队状态和预计等待时间
+
+---
+
+## 11. 通知收件箱
 
 **GET** `/api/v1/tourist/notifications`
 
@@ -1281,9 +1309,57 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 12. 用户信息管理
+## 12. 租赁服务
 
-### 12.1 个人信息
+> 游客端租赁接口。数据库模型见 rental_device / rental_order 表。
+
+### 12.1 可租设备查询
+
+**GET** `/api/v1/tourist/rental/devices`
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| category | string | 否 | 设备类型 |
+| areaId | string | 否 | 景区 ID |
+| pageNo | int | 否 | 默认 1 |
+
+### 12.2 创建租赁预约
+
+**POST** `/api/v1/tourist/rental/orders`
+
+**Auth:** Bearer Token。
+
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| deviceNo | string | 是 | 设备编号 |
+| expectedReturnTime | string | 是 | 预计归还时间 |
+| payMethod | string | 是 | 支付方式 |
+
+**响应：** `{ "rentalNo": "RTL...", "rentFee": "20.00", "depositAmount": "200.00" }`（rentFee 为预估，实际以归还结算为准）
+
+### 12.3 扫码取设备
+
+**POST** `/api/v1/tourist/rental/orders/{rentalNo}/pickup`
+
+### 12.4 扫码归还
+
+**POST** `/api/v1/tourist/rental/orders/{rentalNo}/return`
+
+**响应：** `{ "rentalNo": "...", "rentFee": "20.00", "depositRefundAmount": "200.00", "status": 5 }`
+
+### 12.5 我的租赁订单
+
+**GET** `/api/v1/tourist/rental/orders`
+
+| 参数 | 必填 | 说明 |
+|------|------|------|
+| status | 否 | 1租借中/2已归还/3逾期/4设备损坏/5已结算 |
+
+---
+
+## 13. 用户信息管理
+
+### 13.1 个人信息
 
 **GET** `/api/v1/tourist/user/profile`
 
@@ -1291,7 +1367,7 @@ X-Idempotent-Key: uuid-v4
 
 **PUT** `/api/v1/tourist/user/profile` — 修改个人信息（手机号需验证码）。
 
-### 12.2 出行人管理
+### 13.2 出行人管理
 
 **GET** `/api/v1/tourist/user/travelers`
 
@@ -1303,7 +1379,7 @@ X-Idempotent-Key: uuid-v4
 
 **DELETE** `/api/v1/tourist/user/travelers/{id}` — 删除
 
-### 12.3 NFC 证件识别
+### 13.3 NFC 证件识别
 
 **POST** `/api/v1/tourist/user/ocr-id`
 
