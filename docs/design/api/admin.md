@@ -291,7 +291,24 @@
 | releaseRule | string | 是 | auto / manual |
 | status | int | 是 | 0/1 |
 
-### 3.3 手动核销
+### 3.3 窗口售票（新开交易）
+
+**POST** `/api/v1/admin/tickets/window-sell`
+
+> US-004 窗口售票员专用。支持一体化售票界面（选票种/填游客/收款）。
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| items | array | 是 | 同游客端下单格式 |
+| contactName | string | 否 | 联系人（现场无联系人的可不传） |
+| contactPhone | string | 否 | 联系人手机 |
+| payMethod | string | 是 | wechat/alipay/unionpay/cash/bank_card/qrcode |
+| cashierId | string | 是 | 收银员 sys_user.id |
+| sessionId | string | 是 | 当前班次 ID |
+
+**响应：** `{ "orderId": "...", "orderNo": "...", "verifyTime": "..." }`
+
+### 3.3a 手动核销
 
 **POST** `/api/v1/admin/tickets/verify-manual`
 
@@ -746,6 +763,16 @@
 
 **GET** `/api/v1/admin/inventory/checkouts?storeId=X&cashierId=Y&sessionId=Z&startDate=A&endDate=B`
 
+### 10.8 收银班次
+
+**POST** `/api/v1/admin/cashier/sessions` — 开班 `{ "sellerId": "S001", "areaId": "AREA_001" }`
+
+**PUT** `/api/v1/admin/cashier/sessions/{sessionId}/close` — 收班（自动汇总本班售票/退票/净收入）
+
+**GET** `/api/v1/admin/cashier/sessions` — 班次列表 `?sellerId=X&startDate=Y&endDate=Z`
+
+**GET** `/api/v1/admin/cashier/sessions/{sessionId}` — 班次日结详情
+
 ---
 
 ## 11. 规则管理
@@ -984,7 +1011,81 @@
 
 ---
 
-## 16. 内容管理
+## 16. 年卡管理
+
+**GET** `/api/v1/admin/annual-cards?status=X&keyword=Y&pageNo=1`
+
+**GET** `/api/v1/admin/annual-cards/{cardNo}` — 年卡详情（含持卡人/证件/有效期/人脸状态）
+
+**POST** `/api/v1/admin/annual-cards/issue` — 窗口办卡 `{ "skuId": "...", "name": "...", "idType": "...", "idNo": "<AES>", "faceImageId": "..." }`
+
+**PUT** `/api/v1/admin/annual-cards/{cardNo}/status` — 状态变更（激活/挂失/注销）`{ "status": 2 }`
+
+**PUT** `/api/v1/admin/annual-cards/{cardNo}/face-rebind` — 人脸重绑 `{ "faceImageId": "..." }`
+
+---
+
+## 17. 租赁管理
+
+**GET** `/api/v1/admin/rental/devices` — 设备台账列表 `?status=X&areaId=Y`
+
+**POST/PUT/DELETE** `/api/v1/admin/rental/devices` — 设备台账 CRUD
+
+**GET** `/api/v1/admin/rental/orders` — 租赁订单列表 `?status=X&deviceNo=Y`
+
+**GET** `/api/v1/admin/rental/orders/{rentalNo}` — 租赁订单详情
+
+**PUT** `/api/v1/admin/rental/orders/{rentalNo}/damage` — 标记设备损坏 `{ "damageRemark": "...", "deductionAmount": "50.00" }`
+
+---
+
+## 18. AI 知识库管理
+
+**GET** `/api/v1/admin/ai/knowledge?category=X&keyword=Y` — 知识条目列表
+
+**POST/PUT/DELETE** `/api/v1/admin/ai/knowledge` — CRUD
+
+**GET** `/api/v1/admin/ai/sessions` — AI 对话日志 `?userId=X&status=Y`
+
+**GET** `/api/v1/admin/ai/sessions/{sessionId}/messages` — 对话记录
+
+**POST** `/api/v1/admin/ai/messages/{msgId}/correct` — 对话纠错 `{ "correctContent": "..." }`
+
+---
+
+## 19. 分销提现审批
+
+**GET** `/api/v1/admin/marketing/withdrawals?status=X` — 提现申请列表
+
+**PUT** `/api/v1/admin/marketing/withdrawals/{withdrawId}/approve` — 审批 `{ "result": 1, "remark": "" }`
+
+---
+
+## 20. 电子围栏
+
+**GET/POST/PUT/DELETE** `/api/v1/admin/geofences` — 围栏 CRUD
+
+---
+
+## 21. 消息模板与批量通知
+
+**GET/POST/PUT** `/api/v1/admin/message-templates` — 模板 CRUD（短信/邮件/微信）
+
+**POST** `/api/v1/admin/notifications/batch` — 批量发送 `{ "templateId": "T001", "targetType": "role/merchant/user", "targetIds": [...], "params": {...} }`
+
+---
+
+## 22. 客服会话管理
+
+**GET** `/api/v1/admin/cs/sessions` — 客服会话列表 `?status=queuing/active&agentId=X`
+
+**PUT** `/api/v1/admin/cs/sessions/{sessionId}/assign` — 指派坐席 `{ "agentId": "..." }`
+
+**GET** `/api/v1/admin/cs/sessions/{sessionId}/messages` — 会话消息查询
+
+---
+
+## 23. 内容管理
 
 **GET/POST/PUT** `/api/v1/admin/content/articles` — 资讯管理
 
