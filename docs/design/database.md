@@ -534,8 +534,16 @@
 | id | varchar(32) | 主键 |
 | spu_code | varchar(50) | SPU 编码，唯一索引 |
 | spu_name | varchar(200) | 商品名称 |
-| category_code | varchar(50) | TICKET(门票)/COMBO(联票)/SPOT(景点票)/VEHICLE(车船票)/PERFORMANCE(演艺票)/HOTEL(酒店)/CATERING(餐饮)/CULTURAL(文创)/STUDY(研学)/RENTAL(租赁)/PARKING(停车) |
+| category_code | varchar(50) | TICKET(门票)/COMBO(联票)/SPOT(景点票)/VEHICLE(车船票)/PERFORMANCE(演艺票)/HOTEL/CATERING/CULTURAL/STUDY/RENTAL/PARKING |
+| category_codes | text | 携程多品类映射（JSON 数组 `["ATTRACTION_TICKET","DAY_TOUR"]`），携程支持一个产品映射多个品类 |
 | scenic_spot_id | varchar(32) | 所属景点 ID |
+| primary_language | varchar(10) | 产品原始录入语言（zh-CN/en/...），携程 primaryLanguage 字段 |
+| reference | varchar(200) | 供应商内部识别码（携程 reference 字段） |
+| meta_data | text | 携程 metaData 节点（JSON 扩展元数据，≤8000字符） |
+| service_languages | text | 服务语言列表（JSON 数组 `["zh-CN","en","ko"]`） |
+| guest_info_type | varchar(20) | PER_PERSON（每人）/ PER_ORDER（每单） |
+| guest_info_codes | text | 游客信息字段列表（JSON 数组 `["GUEST_NAME","ID_CARD","COUNTRY"]`） |
+| payment_confirmation_time | int(11) | 携程支付确认时限（分钟）：5/10/15/30/40/60/120 |
 | description | text | 商品描述 |
 | main_image | varchar(500) | 主图 URL |
 | sold_count | int(11) | 累计销量（冗余计数器，由订单完成事件异步更新） |
@@ -573,10 +581,16 @@
 | price_type | varchar(20) | FULL(全价)/DISCOUNT(优惠)/FREE(免费) |
 | original_price | decimal(10,2) | 原价 |
 | sell_price | decimal(10,2) | 售价 |
+| net_price_currency | varchar(3) | 底价币种 (ISO 4217)，默认 CNY。OTA 涉外合同使用 |
+| retail_price_currency | varchar(3) | 卖价币种 (ISO 4217)，默认 CNY |
 | cost_price | decimal(10,2) | 成本价（清分用） |
 | need_real_name | tinyint(1) | 是否需要实名：0否/1是 |
-| max_buy_per_order | int(11) | 每单限购 |
-| valid_days | int(11) | 有效期（天） |
+| min_buy | int(11) | 最小预订份数（携程 minUnits），默认 1 |
+| max_buy_per_order | int(11) | 每单限购（携程 maxUnits） |
+| unit_pax | int(11) | 每份对应人数（携程 unitPax，家庭票=4/5人），默认 1 |
+| companion_required | tinyint(1) | 是否必须组合购买不能单独买（携程 companionRequired），0否/1是 |
+| custom_code | varchar(20) | 携程自定义人群 code（ticketTypeCode=Customized 时使用） |
+| passenger_type | varchar(20) | 人群属性：Adult/Child/Senior/Youth/Infant/Student/Traveler/Customized（区别于 price_type 价格属性） |
 | billing_type | varchar(20) | 计费方式：one_time(一次性，如门票)/hourly(按小时，如讲解器)/daily(按天，如婴儿车) |
 | age_limit_min | int(11) | 年龄下限（硬限制——SKU 级别快速校验，如老人票 age≥60） |
 | age_limit_max | int(11) | 年龄上限（硬限制——SKU 级别快速校验） |
@@ -2282,7 +2296,168 @@
 | battery_level | tinyint(2) | 电量（仅手持机） |
 | heartbeat_time | datetime | 心跳时间 |
 
-**索引：** idx_device_time（联合: device_id + heartbeat_time），按月分区 PARTITION BY RANGE (TO_DAYS(heartbeat_time))
+**索引：** idx_device_time（联合: device_id + heartbeat_time），按月分区
+
+---
+
+### 3.20 携程 OTA 对接扩展 — product_db + integration_db
+
+#### product_itinerary（行程主表）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | 关联 product_spu.id |
+| start_type | varchar(30) | Meet_at_Start_Point / Pickup_Everyone |
+| end_type | varchar(30) | End_on_the_Spot / End_After_Return / Drop_Off_Everyone |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_spu_id
+
+#### product_itinerary_day（行程日）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| itinerary_id | varchar(32) | 关联行程 ID |
+| day_number | int(11) | 第 N 天 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_itinerary_id
+
+#### product_itinerary_item（行程项目）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| day_id | varchar(32) | 关联行程日 ID |
+| time | varchar(5) | HH:mm |
+| poi_id | varchar(32) | 景点 POI ID |
+| duration_value | int(11) | 时长 |
+| duration_unit | varchar(10) | Day/Hour/Minute |
+| fee_inclusions | varchar(20) | Include/Exclude/Ticket_not_Required |
+| visit_type | varchar(30) | View_Outside/View_Inside/View_from_Bus/View_from_Cruise |
+| description | varchar(1000) | 描述 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_day_id
+
+#### product_redemption_location（核销地点）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | 关联 product_spu.id |
+| name | varchar(100) | 地点名称 |
+| address_detail | varchar(200) | 详细地址 |
+| longitude | decimal(12,8) | 经度 |
+| latitude | decimal(12,8) | 纬度 |
+| google_place_id | varchar(200) | Google Place ID |
+| description | varchar(400) | 核销附加说明 |
+| sort_no | int(11) | 排序 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_spu_id
+
+#### product_booking_question（预订附加问题）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | 关联 SPU ID |
+| combo_id | varchar(32) | 关联组合产品 ID（套餐级问题时使用） |
+| code | varchar(200) | 问题编码 |
+| name | varchar(50) | 问题名称（对客显示） |
+| answer_type | varchar(20) | Single_Selection / Free_Text |
+| description | varchar(500) | 提示说明 |
+| sort_no | int(11) | 排序 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** idx_spu_id, idx_combo_id
+
+#### product_booking_question_answer（问题选项）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| question_id | varchar(32) | 关联问题 ID |
+| code | varchar(200) | 选项编码 |
+| name | varchar(100) | 选项名称（对客显示） |
+| sort_no | int(11) | 排序 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_question_id
+
+#### product_tag（产品标签）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| tag_name | varchar(128) | 标签名称 |
+| create_time | datetime | 创建时间 |
+
+**索引：** uk_tag_name
+
+#### product_tag_mapping（产品-标签关联）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| tag_id | varchar(32) | 标签 ID |
+
+**索引：** uk_spu_tag（联合唯一）
+
+#### product_destination（目的地城市）
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| supplier_id | varchar(200) | 供应商目的地 ID |
+| google_place_id | varchar(200) | Google Place ID |
+| name | varchar(100) | 目的地名称 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_spu_id
+
+#### product_departure（出发地城市）
+
+> 未提供时默认同目的地。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spu_id | varchar(32) | SPU ID |
+| supplier_id | varchar(200) | 供应商出发地 ID |
+| google_place_id | varchar(200) | Google Place ID |
+| name | varchar(100) | 出发地名称 |
+| create_time | datetime | 创建时间 |
+
+**索引：** idx_spu_id
+
+#### product_option_slot 补充字段
+
+> `product_option_slot` 表新增以下字段：
+
+```
+option_status    varchar(10)    active/inactive（携程 optionStatus）
+option_desc      varchar(200)   套餐描述（携程 optionDescription）
+option_booking_cutoff_time  varchar(50)   套餐级提前预订时间（JSON）
+primary_language varchar(10)   value_name 对应的语言代码
+``` PARTITION BY RANGE (TO_DAYS(heartbeat_time))
 
 ## 4. 表统计
 
