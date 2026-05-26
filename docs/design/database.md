@@ -152,6 +152,46 @@
 
 **索引：** uk_spot_code, idx_area_id, idx_spot_type
 
+#### scenic_area_i18n（景区多语言）— scenic_db
+
+> 保留 scenic_area.area_name_en 字段用于 OTA 对接，不废弃。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| area_id | varchar(32) | 景区 ID |
+| language_code | varchar(10) | 语言代码 |
+| area_name | varchar(200) | 多语言名称 |
+| description | text | 多语言简介 |
+| address | varchar(500) | 多语言地址 |
+| opening_hours | varchar(500) | 多语言开放时间 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_area_language（联合唯一: area_id + language_code）
+
+#### scenic_spot_i18n（景点多语言）— scenic_db
+
+> 保留 scenic_spot.spot_name_en 字段用于 OTA 对接，不废弃。
+
+| 列名 | 类型 | 说明 |
+|------|------|------|
+| id | varchar(32) | 主键 |
+| spot_id | varchar(32) | 景点 ID |
+| language_code | varchar(10) | 语言代码 |
+| spot_name | varchar(200) | 多语言名称 |
+| description | text | 多语言介绍 |
+| create_by | varchar(50) | 创建人 |
+| create_time | datetime | 创建时间 |
+| update_by | varchar(50) | 更新人 |
+| update_time | datetime | 更新时间 |
+| del_flag | tinyint(1) | 0正常/1删除 |
+
+**索引：** uk_spot_language（联合唯一: spot_id + language_code）
+
 #### ota_poi_mapping（OTA POI 映射）
 
 | 列名 | 类型 | 说明 |

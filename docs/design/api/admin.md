@@ -37,6 +37,8 @@
 
 **DELETE** `/api/v1/admin/scenic/{areaId}` — 逻辑删除
 
+**POST** `/api/v1/admin/scenic/{areaId}/languages` — 设置多语言内容 `{ "languageCode": "en", "areaName": "...", "description": "...", "address": "...", "openingHours": "..." }`
+
 ### 1.2 景点管理
 
 **GET** `/api/v1/admin/scenic/{areaId}/spots` — 景区下景点列表
@@ -59,6 +61,8 @@
 **PUT** `/api/v1/admin/scenic/{areaId}/spots/{spotId}` — 编辑
 
 **DELETE** `/api/v1/admin/scenic/{areaId}/spots/{spotId}` — 逻辑删除
+
+**POST** `/api/v1/admin/scenic/{areaId}/spots/{spotId}/languages` — 设置多语言内容 `{ "languageCode": "en", "spotName": "...", "description": "..." }`
 
 ---
 
