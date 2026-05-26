@@ -1060,6 +1060,12 @@
 
 **GET** `/api/v1/admin/marketing/export` — 导出活动数据/佣金记录
 
+### 8.5 商品关联视图
+
+**GET** `/api/v1/admin/marketing/product/{skuId}/activities` — 查看某商品关联的所有营销活动（含秒杀/拼团/优惠券，叠加冲突检测）
+
+**响应：** `{ "code": 0, "data": { "skuId": "SKU001", "seckills": [{ "id":"...", "price":"19.90", "status":1 }], "groupBuys": [{ "id":"...", "groupPrice":"30.00", "minCount":3 }], "coupons": [{ "couponId":"CP001", "couponName":"满100减20", "status":1 }], "conflicts": [{ "message": "秒杀与优惠券不可叠加使用" }] } }`
+
 ---
 
 ## 9. 会员管理
