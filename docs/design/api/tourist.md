@@ -270,7 +270,7 @@
 
 ---
 
-## 3. 购物车
+## 2. 购物车
 
 ### 3.0 购物车管理
 
@@ -293,7 +293,7 @@
 
 ---
 
-## 4. 下单与支付
+## 3. 下单与支付
 
 ### 4.1 订单预览（价格试算 + 规则校验）
 
@@ -619,7 +619,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 5. 订单管理
+## 4. 订单管理
 
 ### 5.1 我的订单列表
 
@@ -737,7 +737,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 6. 年卡
+## 5. 年卡
 
 ### 6.1 可购买年卡列表
 
@@ -847,7 +847,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 7. 会员与营销
+## 6. 会员与营销
 
 ### 7.1 我的会员信息
 
@@ -973,7 +973,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 8. 发票
+## 7. 发票
 
 ### 8.1 可开票订单
 
@@ -1154,7 +1154,7 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 9. AI 问答
+## 10. AI 问答
 
 ### 9.1 AI 问答对话
 
@@ -1209,11 +1209,11 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 10. 租赁服务
+## 11. 租赁服务
 
 > 游客端租赁接口。租赁业务数据库模型见 [database.md](../database.md)。
 
-### 10.1 可租设备查询
+### 11.1 可租设备查询
 
 **GET** `/api/v1/tourist/rental/devices`
 
@@ -1226,7 +1226,7 @@ X-Idempotent-Key: uuid-v4
 
 **响应records字段：** deviceNo(设备编号), skuName, billingType, unitPrice, depositAmount, location, status(空闲/租借中)。
 
-### 10.2 创建租赁预约
+### 11.2 创建租赁预约
 
 **POST** `/api/v1/tourist/rental/orders`
 
@@ -1240,7 +1240,7 @@ X-Idempotent-Key: uuid-v4
 
 **响应：** `{ "code": 0, "data": { "rentalNo": "RTL20260601001", "orderId": "ORD...", "rentFee": "20.00", "depositAmount": "200.00", "paidAmount": "220.00" } }`
 
-### 10.3 扫码取设备
+### 11.3 扫码取设备
 
 **POST** `/api/v1/tourist/rental/orders/{rentalNo}/pickup`
 
@@ -1252,7 +1252,7 @@ X-Idempotent-Key: uuid-v4
 |------|------|------|------|
 | deviceNo | string | 是 | 扫码获取的设备编号 |
 
-### 10.4 扫码归还设备
+### 11.4 扫码归还设备
 
 **POST** `/api/v1/tourist/rental/orders/{rentalNo}/return`
 
@@ -1275,7 +1275,7 @@ X-Idempotent-Key: uuid-v4
 }
 ```
 
-### 10.5 我的租赁订单
+### 11.5 我的租赁订单
 
 **GET** `/api/v1/tourist/rental/orders`
 
@@ -1290,9 +1290,9 @@ X-Idempotent-Key: uuid-v4
 
 ---
 
-## 11. 用户信息管理
+## 12. 用户信息管理
 
-### 11.1 个人信息
+### 12.1 个人信息
 
 **GET** `/api/v1/tourist/user/profile`
 
@@ -1300,7 +1300,7 @@ X-Idempotent-Key: uuid-v4
 
 **PUT** `/api/v1/tourist/user/profile` — 修改个人信息（手机号需验证码）。
 
-### 11.2 出行人管理
+### 12.2 出行人管理
 
 **GET** `/api/v1/tourist/user/travelers`
 
@@ -1312,7 +1312,7 @@ X-Idempotent-Key: uuid-v4
 
 **DELETE** `/api/v1/tourist/user/travelers/{id}` — 删除
 
-### 11.3 NFC 证件识别
+### 12.3 NFC 证件识别
 
 **POST** `/api/v1/tourist/user/ocr-id`
 

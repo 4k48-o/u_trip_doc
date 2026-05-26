@@ -465,7 +465,7 @@
       "id": "N001",
       "title": "支付成功",
       "content": "您的订单 MTY20260601001 已支付成功",
-      "readFlag": 0,
+        "readFlag": false,
       "createTime": "2026-05-26 10:00:00"
     }],
     "total": 5,
