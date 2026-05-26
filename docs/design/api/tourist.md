@@ -862,6 +862,8 @@ X-Idempotent-Key: uuid-v4
 
 **GET** `/api/v1/tourist/annual-cards/{cardNo}/reservations` — 我的年卡预约记录
 
+**DELETE** `/api/v1/tourist/annual-cards/{cardNo}/reservations/{id}` — 取消预约
+
 ---
 
 ## 6. 会员与营销
@@ -1274,6 +1276,8 @@ X-Idempotent-Key: uuid-v4
 | pageSize | int | 否 | 默认 20 |
 
 **PUT** `/api/v1/tourist/notifications/{id}/read` — 标记已读
+
+**PUT** `/api/v1/tourist/notifications/read-all` — 全部标记已读
 
 ---
 

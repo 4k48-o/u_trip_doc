@@ -1779,6 +1779,7 @@
 | title | varchar(200) | 标题 |
 | content | longtext | 内容 |
 | images | text | 图片列表（JSON） |
+| video_url | varchar(500) | 短视频 URL（mp4，上限 60 秒） |
 | tags | varchar(200) | 标签 |
 | like_count | int(11) | 点赞数 |
 | collect_count | int(11) | 收藏数 |
